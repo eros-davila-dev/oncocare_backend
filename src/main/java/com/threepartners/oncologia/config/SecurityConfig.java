@@ -5,6 +5,7 @@ import com.threepartners.oncologia.infrastructure.in.rest.advice.JsonAuthenticat
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -31,6 +32,8 @@ public class SecurityConfig {
             "/api/v1/auth/**",
             "/api/v1/chatbot/webhook/**",
             "/api/v1/chatbot/mensaje",
+            "/api/v1/chatbot/escalar",
+            "/api/v1/chatbot/consultas/*/valoracion",
             "/api/v1/devices/webhook/**",
             "/api/v1/notificaciones/callback",
             "/actuator/health",
@@ -47,6 +50,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(RUTAS_PUBLICAS).permitAll()
+                        // Base de conocimiento: el portal la muestra a visitantes anonimos.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/preguntas-frecuentes").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(jsonAuthenticationEntryPoint)

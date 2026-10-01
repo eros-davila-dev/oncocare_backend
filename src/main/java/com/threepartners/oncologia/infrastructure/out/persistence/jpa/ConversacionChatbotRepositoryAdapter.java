@@ -23,6 +23,13 @@ public class ConversacionChatbotRepositoryAdapter implements ConversacionChatbot
     }
 
     @Override
+    public List<ConversacionChatbot> listarPorConsulta(Long consultaId) {
+        return jpaRepository.findByConsultaIdOrderByFechaAscIdAsc(consultaId).stream()
+                .map(ConversacionChatbotRepositoryAdapter::aDominio)
+                .toList();
+    }
+
+    @Override
     public List<ConversacionChatbot> listarPorSesion(String sesionId, int limite) {
         var pageable = PageRequest.of(0, limite, Sort.by(Sort.Direction.DESC, "fecha"));
         return jpaRepository.findBySesionIdOrderByFechaDesc(sesionId, pageable).stream()
@@ -38,6 +45,7 @@ public class ConversacionChatbotRepositoryAdapter implements ConversacionChatbot
                 .id(conversacion.getId())
                 .pacienteId(conversacion.getPacienteId())
                 .sesionId(conversacion.getSesionId())
+                .consultaId(conversacion.getConsultaId())
                 .mensajeUsuario(conversacion.getMensajeUsuario())
                 .respuestaBot(conversacion.getRespuestaBot())
                 .intencionDetectada(conversacion.getIntencionDetectada())
@@ -51,6 +59,7 @@ public class ConversacionChatbotRepositoryAdapter implements ConversacionChatbot
                 .id(entidad.getId())
                 .pacienteId(entidad.getPacienteId())
                 .sesionId(entidad.getSesionId())
+                .consultaId(entidad.getConsultaId())
                 .mensajeUsuario(entidad.getMensajeUsuario())
                 .respuestaBot(entidad.getRespuestaBot())
                 .intencionDetectada(entidad.getIntencionDetectada())

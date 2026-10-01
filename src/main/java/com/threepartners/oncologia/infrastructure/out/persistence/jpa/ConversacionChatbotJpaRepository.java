@@ -8,4 +8,6 @@ import java.util.List;
 public interface ConversacionChatbotJpaRepository extends JpaRepository<ConversacionChatbotJpaEntity, Long> {
 
     List<ConversacionChatbotJpaEntity> findBySesionIdOrderByFechaDesc(String sesionId, Pageable pageable);
+
+    List<ConversacionChatbotJpaEntity> findByConsultaIdOrderByFechaAscIdAsc(Long consultaId);
 }

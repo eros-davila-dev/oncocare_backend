@@ -1,11 +1,16 @@
 package com.threepartners.oncologia.infrastructure.in.rest;
 
 import com.threepartners.oncologia.application.chatbot.ChatbotOrquestadorUseCase;
+import com.threepartners.oncologia.application.chatbot.InteractuarConsultaChatbotUseCase;
+import com.threepartners.oncologia.domain.estudio.CanalConsulta;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.chatbot.ChatbotMensajeRequestDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.chatbot.ChatbotMensajeResponseDto;
+import com.threepartners.oncologia.infrastructure.in.rest.dto.chatbot.EscalarConsultaRequestDto;
+import com.threepartners.oncologia.infrastructure.in.rest.dto.chatbot.ValorarConsultaRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,11 +30,31 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChatbotController {
 
     private final ChatbotOrquestadorUseCase chatbotOrquestadorUseCase;
+    private final InteractuarConsultaChatbotUseCase interactuarConsultaUseCase;
 
     @PostMapping("/mensaje")
     public ChatbotMensajeResponseDto enviarMensaje(@Valid @RequestBody ChatbotMensajeRequestDto dto, HttpServletRequest request) {
-        String respuesta = chatbotOrquestadorUseCase.procesar(
-                dto.sesionId(), dto.mensaje(), AutenticacionActual.usuarioId(), AutenticacionActual.rol(), AutenticacionActual.ipOrigen(request));
-        return new ChatbotMensajeResponseDto(respuesta);
+        var respuesta = chatbotOrquestadorUseCase.procesar(dto.sesionId(), dto.mensaje(), CanalConsulta.CHATBOT_WEB,
+                AutenticacionActual.usuarioId(), AutenticacionActual.rol(), AutenticacionActual.ipOrigen(request));
+        return new ChatbotMensajeResponseDto(respuesta.texto(), respuesta.consultaId(), respuesta.estadoConsulta());
+    }
+
+    /** 👍/👎 sobre la respuesta: un 👎 a una respuesta del bot la pasa al personal (NCA). */
+    @PostMapping("/consultas/{id}/valoracion")
+    public ChatbotMensajeResponseDto valorar(@PathVariable Long id, @Valid @RequestBody ValorarConsultaRequestDto dto) {
+        var consulta = interactuarConsultaUseCase.valorar(id, dto.valor(), dto.sesionId());
+        String texto = dto.valor() > 0
+                ? "¡Gracias! Me alegra haberte ayudado."
+                : "Gracias por avisarme. Le pedi a una persona del equipo que revise tu consulta.";
+        return new ChatbotMensajeResponseDto(texto, consulta.getId(), consulta.getResultado());
+    }
+
+    @PostMapping("/escalar")
+    public ChatbotMensajeResponseDto hablarConUnaPersona(@Valid @RequestBody EscalarConsultaRequestDto dto) {
+        var consulta = interactuarConsultaUseCase.hablarConUnaPersona(dto.sesionId(), CanalConsulta.CHATBOT_WEB,
+                AutenticacionActual.usuarioId(), AutenticacionActual.rol());
+        return new ChatbotMensajeResponseDto(
+                "Listo, una persona del equipo de la fundacion revisara tu consulta y te respondera lo antes posible.",
+                consulta.getId(), consulta.getResultado());
     }
 }

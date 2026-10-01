@@ -12,9 +12,15 @@ import com.threepartners.oncologia.domain.chatbot.ConversacionChatbot;
 import com.threepartners.oncologia.domain.chatbot.ConversacionChatbotRepositoryPort;
 import com.threepartners.oncologia.domain.chatbot.GeminiPort;
 import com.threepartners.oncologia.domain.chatbot.InterpretacionChatbot;
+import com.threepartners.oncologia.domain.chatbot.PreguntaFrecuenteRepositoryPort;
+import com.threepartners.oncologia.domain.chatbot.RespuestaAccion;
+import com.threepartners.oncologia.domain.chatbot.RespuestaChatbot;
+import com.threepartners.oncologia.domain.chatbot.ResultadoAccion;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
 import com.threepartners.oncologia.domain.cita.OrigenCita;
+import com.threepartners.oncologia.domain.estudio.CanalConsulta;
+import com.threepartners.oncologia.domain.estudio.Consulta;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
@@ -26,6 +32,7 @@ import com.threepartners.oncologia.domain.usuario.UsuarioRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -33,6 +40,14 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
+
+import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.ERROR_NEGOCIO;
+import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.ESCALAR;
+import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.EXITO;
+import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.INFORMATIVA;
+import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.REQUIERE_DATOS;
+import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.REQUIERE_SESION;
 
 /**
  * Punto unico de orquestacion del chatbot (seccion 13): Gemini solo
@@ -40,6 +55,10 @@ import java.util.Optional;
  * reales de la base de datos y las reglas de negocio ya existentes (los mismos
  * casos de uso que usa el resto del sistema), que accion ejecutar. Gemini
  * jamas toca la base de datos ni ejecuta nada por si mismo.
+ *
+ * Cada accion informa un {@link ResultadoAccion} (lo que realmente paso) y
+ * {@link GestorConsultasChatbot} lo traduce al desenlace de la consulta que
+ * mide el indicador NCA.
  */
 @Service
 @RequiredArgsConstructor
@@ -65,6 +84,9 @@ public class ChatbotOrquestadorUseCase {
     private final RegistrarAsistenciaCitaUseCase registrarAsistenciaCitaUseCase;
     private final FrontendProperties frontendProperties;
     private final RegistroProperties registroProperties;
+    private final GestorConsultasChatbot gestorConsultas;
+    private final PreguntaFrecuenteRepositoryPort preguntaFrecuenteRepositoryPort;
+    private final Clock clock;
 
     /**
      * Deliberadamente sin @Transactional: la llamada a Gemini es una peticion
@@ -73,27 +95,35 @@ public class ChatbotOrquestadorUseCase {
      * escriben en la base (agendar/cancelar/reprogramar/confirmar) ya tienen
      * su propia demarcacion transaccional.
      */
-    public String procesar(String sesionId, String mensajeUsuario, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+    public RespuestaChatbot procesar(String sesionId, String mensajeUsuario, CanalConsulta canal,
+                                     Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+        Instant inicioTurno = clock.instant();
         List<ConversacionChatbot> historial = conversacionChatbotRepositoryPort.listarPorSesion(sesionId, HISTORIAL_MAXIMO);
 
         Paciente paciente = resolverPaciente(usuarioAutenticadoId, rolAutenticado);
-        ContextoUsuarioChatbot contexto = construirContexto(usuarioAutenticadoId, rolAutenticado, paciente);
+        ContextoUsuarioChatbot contexto = construirContexto(usuarioAutenticadoId, rolAutenticado, paciente)
+                .conConocimiento(preguntaFrecuenteRepositoryPort.listarActivas());
 
         InterpretacionChatbot interpretacion = geminiPort.interpretar(mensajeUsuario, historial, contexto);
 
-        String respuestaFinal = ejecutarAccion(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen);
+        RespuestaAccion respuesta = ejecutarAccion(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen);
+
+        CanalConsulta canalEfectivo = canal != null ? canal : CanalConsulta.CHATBOT_WEB;
+        Consulta consulta = gestorConsultas.registrarTurno(sesionId, canalEfectivo, paciente != null ? paciente.getId() : null,
+                interpretacion.intencion(), respuesta.resultado(), mensajeUsuario, inicioTurno);
 
         conversacionChatbotRepositoryPort.guardar(ConversacionChatbot.builder()
                 .pacienteId(paciente != null ? paciente.getId() : null)
                 .sesionId(sesionId)
+                .consultaId(consulta.getId())
                 .mensajeUsuario(mensajeUsuario)
-                .respuestaBot(respuestaFinal)
+                .respuestaBot(respuesta.texto())
                 .intencionDetectada(interpretacion.intencion().name())
-                .canal("WEB")
-                .fecha(Instant.now())
+                .canal(canalEfectivo.name())
+                .fecha(clock.instant())
                 .build());
 
-        return respuestaFinal;
+        return new RespuestaChatbot(respuesta.texto(), consulta.getId(), consulta.getResultado());
     }
 
     private Paciente resolverPaciente(Long usuarioAutenticadoId, Rol rolAutenticado) {
@@ -114,13 +144,14 @@ public class ChatbotOrquestadorUseCase {
         return new ContextoUsuarioChatbot(true, paciente != null, nombre);
     }
 
-    private String ejecutarAccion(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+    private RespuestaAccion ejecutarAccion(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
         return switch (interpretacion.intencion()) {
-            case GENERAL_QUERY, HELP, ESCALATE_TO_STAFF -> interpretacion.respuestaSugerida();
+            case GENERAL_QUERY, HELP -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
+            case ESCALATE_TO_STAFF -> new RespuestaAccion(interpretacion.respuestaSugerida(), ESCALAR);
             case REGISTER_PATIENT -> registroProperties.pacientesHabilitado()
-                    ? "Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
-                            + "/auth/registro. Solo toma un par de minutos y luego podras agendar tus citas desde aqui."
-                    : MENSAJE_REGISTRO_NO_DISPONIBLE;
+                    ? new RespuestaAccion("Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
+                            + "/auth/registro. Solo toma un par de minutos y luego podras agendar tus citas desde aqui.", INFORMATIVA)
+                    : new RespuestaAccion(MENSAJE_REGISTRO_NO_DISPONIBLE, ESCALAR);
             case CHECK_APPOINTMENT -> requierePaciente(paciente, usuarioAutenticadoId, rolAutenticado, () -> consultarCitas(paciente));
             case CONFIRM_APPOINTMENT -> requierePaciente(paciente, usuarioAutenticadoId, rolAutenticado, () -> confirmarProximaCita(paciente, usuarioAutenticadoId, rolAutenticado));
             case CANCEL_APPOINTMENT -> requierePaciente(paciente, usuarioAutenticadoId, rolAutenticado, () -> cancelarProximaCita(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen));
@@ -134,19 +165,19 @@ public class ChatbotOrquestadorUseCase {
      * con ficha ya completada); distingue el mensaje segun en cual de los dos
      * pasos del autoservicio (seccion 7) se quedo el usuario.
      */
-    private String requierePaciente(Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, java.util.function.Supplier<String> accion) {
+    private RespuestaAccion requierePaciente(Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, Supplier<RespuestaAccion> accion) {
         if (paciente == null) {
             boolean autenticadoComoPaciente = usuarioAutenticadoId != null && rolAutenticado == Rol.PACIENTE;
-            return autenticadoComoPaciente ? MENSAJE_REQUIERE_PERFIL : MENSAJE_REQUIERE_SESION;
+            return new RespuestaAccion(autenticadoComoPaciente ? MENSAJE_REQUIERE_PERFIL : MENSAJE_REQUIERE_SESION, REQUIERE_SESION);
         }
         try {
             return accion.get();
         } catch (DomainException e) {
-            return "No pude completar la accion: " + e.getMessage();
+            return new RespuestaAccion("No pude completar la accion: " + e.getMessage(), ERROR_NEGOCIO);
         }
     }
 
-    private String consultarCitas(Paciente paciente) {
+    private RespuestaAccion consultarCitas(Paciente paciente) {
         var pagina = consultarCitaUseCase.misCitas(paciente.getUsuarioId(), null, CriterioPaginacion.de(0, 5));
         List<Cita> citas = pagina.contenido().stream()
                 .filter(c -> c.getEstado() == EstadoCita.PROGRAMADA || c.getEstado() == EstadoCita.CONFIRMADA)
@@ -154,78 +185,83 @@ public class ChatbotOrquestadorUseCase {
                 .toList();
 
         if (citas.isEmpty()) {
-            return "No tienes citas proximas programadas. ¿Quieres que te ayude a agendar una?";
+            return new RespuestaAccion("No tienes citas proximas programadas. ¿Quieres que te ayude a agendar una?", EXITO);
         }
 
         Cita proxima = citas.get(0);
         String base = "Tu proxima cita es el %s a las %s (%s), estado: %s.".formatted(
                 proxima.getFecha(), proxima.getHora(), proxima.getTipoConsulta(), etiqueta(proxima.getEstado()));
 
-        return citas.size() > 1 ? base + " Tienes %d citas mas programadas.".formatted(citas.size() - 1) : base;
+        return new RespuestaAccion(
+                citas.size() > 1 ? base + " Tienes %d citas mas programadas.".formatted(citas.size() - 1) : base, EXITO);
     }
 
-    private String confirmarProximaCita(Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado) {
-        Cita cita = proximaCitaModificable(paciente)
-                .orElse(null);
-        if (cita == null) {
-            return "No tienes ninguna cita pendiente de confirmar.";
-        }
-        if (cita.getEstado() == EstadoCita.CONFIRMADA) {
-            return "Tu cita del %s a las %s ya estaba confirmada.".formatted(cita.getFecha(), cita.getHora());
-        }
-        registrarAsistenciaCitaUseCase.confirmar(cita.getId(), usuarioAutenticadoId, rolAutenticado);
-        return "Listo, confirmamos tu cita del %s a las %s.".formatted(cita.getFecha(), cita.getHora());
-    }
-
-    private String cancelarProximaCita(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+    private RespuestaAccion confirmarProximaCita(Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado) {
         Cita cita = proximaCitaModificable(paciente).orElse(null);
         if (cita == null) {
-            return "No tienes ninguna cita proxima para cancelar.";
+            return new RespuestaAccion("No tienes ninguna cita pendiente de confirmar.", EXITO);
+        }
+        if (cita.getEstado() == EstadoCita.CONFIRMADA) {
+            return new RespuestaAccion("Tu cita del %s a las %s ya estaba confirmada.".formatted(cita.getFecha(), cita.getHora()), EXITO);
+        }
+        registrarAsistenciaCitaUseCase.confirmar(cita.getId(), usuarioAutenticadoId, rolAutenticado);
+        return new RespuestaAccion("Listo, confirmamos tu cita del %s a las %s.".formatted(cita.getFecha(), cita.getHora()), EXITO);
+    }
+
+    private RespuestaAccion cancelarProximaCita(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+        Cita cita = proximaCitaModificable(paciente).orElse(null);
+        if (cita == null) {
+            return new RespuestaAccion("No tienes ninguna cita proxima para cancelar.", EXITO);
         }
         String motivo = interpretacion.entidad("motivo");
         if (!interpretacion.listoParaEjecutar() || motivo == null) {
-            return "Antes de cancelar tu cita del %s a las %s, cuentame brevemente el motivo.".formatted(cita.getFecha(), cita.getHora());
+            return new RespuestaAccion("Antes de cancelar tu cita del %s a las %s, cuentame brevemente el motivo."
+                    .formatted(cita.getFecha(), cita.getHora()), REQUIERE_DATOS);
         }
         cancelarCitaUseCase.ejecutar(cita.getId(), motivo, usuarioAutenticadoId, rolAutenticado, ipOrigen);
-        return "Tu cita del %s a las %s fue cancelada.".formatted(cita.getFecha(), cita.getHora());
+        return new RespuestaAccion("Tu cita del %s a las %s fue cancelada.".formatted(cita.getFecha(), cita.getHora()), EXITO);
     }
 
-    private String reprogramarProximaCita(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+    private RespuestaAccion reprogramarProximaCita(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
         Cita cita = proximaCitaModificable(paciente).orElse(null);
         if (cita == null) {
-            return "No tienes ninguna cita proxima para reprogramar.";
+            return new RespuestaAccion("No tienes ninguna cita proxima para reprogramar.", EXITO);
         }
 
         Optional<LocalDate> fecha = parsearFecha(interpretacion.entidad("fecha"));
         Optional<LocalTime> hora = parsearHora(interpretacion.entidad("hora"));
 
         if (!interpretacion.listoParaEjecutar() || fecha.isEmpty() || hora.isEmpty()) {
-            return "¿Para que nueva fecha y hora quieres reprogramar tu cita del %s?".formatted(cita.getFecha());
+            return new RespuestaAccion("¿Para que nueva fecha y hora quieres reprogramar tu cita del %s?"
+                    .formatted(cita.getFecha()), REQUIERE_DATOS);
         }
 
         Cita actualizada = reprogramarCitaUseCase.ejecutar(cita.getId(), fecha.get(), hora.get(), usuarioAutenticadoId, rolAutenticado, ipOrigen);
-        return "Tu cita quedo reprogramada para el %s a las %s.".formatted(actualizada.getFecha(), actualizada.getHora());
+        return new RespuestaAccion("Tu cita quedo reprogramada para el %s a las %s."
+                .formatted(actualizada.getFecha(), actualizada.getHora()), EXITO);
     }
 
-    private String agendarCita(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+    private RespuestaAccion agendarCita(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
         String especialidadTexto = interpretacion.entidad("especialidad");
         Optional<LocalDate> fecha = parsearFecha(interpretacion.entidad("fecha"));
         Optional<LocalTime> hora = parsearHora(interpretacion.entidad("hora"));
 
         if (!interpretacion.listoParaEjecutar() || especialidadTexto == null || fecha.isEmpty() || hora.isEmpty()) {
-            return interpretacion.respuestaSugerida();
+            return new RespuestaAccion(interpretacion.respuestaSugerida(), REQUIERE_DATOS);
         }
 
         Especialidad especialidad;
         try {
             especialidad = Especialidad.valueOf(especialidadTexto);
         } catch (IllegalArgumentException e) {
-            return "No reconozco esa especialidad. Las disponibles son oncologia clinica, oncologia quirurgica, radioterapia y cuidados paliativos.";
+            return new RespuestaAccion("No reconozco esa especialidad. Las disponibles son oncologia clinica, oncologia quirurgica, "
+                    + "radioterapia y cuidados paliativos.", REQUIERE_DATOS);
         }
 
         Usuario medico = usuarioRepositoryPort.listarPorEspecialidad(especialidad).stream().findFirst().orElse(null);
         if (medico == null) {
-            return "En este momento no tenemos un medico disponible en esa especialidad. Por favor contacta a recepcion.";
+            return new RespuestaAccion("En este momento no tenemos un medico disponible en esa especialidad. "
+                    + "Le pedi a recepcion que te contacte.", ESCALAR);
         }
 
         Cita nuevaCita = Cita.builder()
@@ -234,11 +270,11 @@ public class ChatbotOrquestadorUseCase {
                 .fecha(fecha.get())
                 .hora(hora.get())
                 .tipoConsulta(interpretacion.entidad("motivo") != null ? interpretacion.entidad("motivo") : "Consulta oncologica")
+                .origen(OrigenCita.CHATBOT_WEB)
                 .build();
 
-        nuevaCita.setOrigen(OrigenCita.CHATBOT_WEB);
         Cita creada = agendarCitaUseCase.ejecutar(nuevaCita, null, usuarioAutenticadoId, rolAutenticado, ipOrigen);
-        return "Listo, agendamos tu cita para el %s a las %s.".formatted(creada.getFecha(), creada.getHora());
+        return new RespuestaAccion("Listo, agendamos tu cita para el %s a las %s.".formatted(creada.getFecha(), creada.getHora()), EXITO);
     }
 
     private Optional<Cita> proximaCitaModificable(Paciente paciente) {

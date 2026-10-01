@@ -17,6 +17,8 @@ public class ConversacionChatbot {
 
     private Long id;
     private Long pacienteId;
+    /** Consulta (necesidad) a la que pertenece este turno: une la conversacion con el indicador NCA. */
+    private Long consultaId;
     private String sesionId;
     private String mensajeUsuario;
     private String respuestaBot;

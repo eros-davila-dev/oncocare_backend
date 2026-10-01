@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -36,6 +37,9 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
                 .resueltaPorUsuarioId(c.getResueltaPorUsuarioId())
                 .capturadoPor(c.getCapturadoPor())
                 .observacion(c.getObservacion())
+                .turnos(c.getTurnos())
+                .ultimaActividadEn(c.getUltimaActividadEn() != null ? c.getUltimaActividadEn() : c.getAbiertaEn())
+                .notaResolucion(c.getNotaResolucion())
                 .build();
         return aDominio(jpaRepository.save(entidad));
     }
@@ -43,6 +47,31 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
     @Override
     public Optional<Consulta> buscarPorId(Long id) {
         return jpaRepository.findById(id).map(ConsultaRepositoryAdapter::aDominio);
+    }
+
+    @Override
+    public Optional<Consulta> buscarUltimaPorSesion(String sesionId) {
+        return jpaRepository.findFirstBySesionIdOrderByAbiertaEnDescIdDesc(sesionId).map(ConsultaRepositoryAdapter::aDominio);
+    }
+
+    @Override
+    public Pagina<Consulta> listarEscaladas(CriterioPaginacion criterio) {
+        var pageable = PaginacionMapper.aPageable(
+                new CriterioPaginacion(criterio.numeroPagina(), criterio.tamanoPagina(), "ultimaActividadEn", true), "ultimaActividadEn");
+        return PaginacionMapper.aPagina(jpaRepository.findByResultado(ResultadoConsulta.ESCALADA, pageable),
+                ConsultaRepositoryAdapter::aDominio);
+    }
+
+    @Override
+    public List<Consulta> abiertasSinActividadAntesDe(Instant limite) {
+        return jpaRepository.findByResultadoIsNullAndUltimaActividadEnBefore(limite).stream()
+                .map(ConsultaRepositoryAdapter::aDominio).toList();
+    }
+
+    @Override
+    public List<Consulta> escaladasSinActividadAntesDe(Instant limite) {
+        return jpaRepository.findByResultadoAndUltimaActividadEnBefore(ResultadoConsulta.ESCALADA, limite).stream()
+                .map(ConsultaRepositoryAdapter::aDominio).toList();
     }
 
     @Override
@@ -77,6 +106,9 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
                 .resueltaPorUsuarioId(e.getResueltaPorUsuarioId())
                 .capturadoPor(e.getCapturadoPor())
                 .observacion(e.getObservacion())
+                .turnos(e.getTurnos())
+                .ultimaActividadEn(e.getUltimaActividadEn())
+                .notaResolucion(e.getNotaResolucion())
                 .build();
     }
 }

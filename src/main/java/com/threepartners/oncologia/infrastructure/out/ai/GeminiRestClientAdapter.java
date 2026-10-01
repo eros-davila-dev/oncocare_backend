@@ -8,6 +8,7 @@ import com.threepartners.oncologia.domain.chatbot.ConversacionChatbot;
 import com.threepartners.oncologia.domain.chatbot.GeminiPort;
 import com.threepartners.oncologia.domain.chatbot.Intencion;
 import com.threepartners.oncologia.domain.chatbot.InterpretacionChatbot;
+import com.threepartners.oncologia.domain.chatbot.PreguntaFrecuente;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -47,8 +48,11 @@ public class GeminiRestClientAdapter implements GeminiPort {
               ESCALATE_TO_STAFF con una respuesta breve indicando que el equipo
               medico le respondera.
             - NUNCA inventes datos que no te dieron en este mensaje (horarios exactos,
-              direcciones, precios, nombres de medicos). Si no tienes el dato, dilo y
-              sugiere contactar a recepcion.
+              direcciones, precios, nombres de medicos). Responde preguntas generales
+              SOLO con la INFORMACION REAL y las PREGUNTAS FRECUENTES de abajo. Si la
+              respuesta no esta ahi, clasifica como ESCALATE_TO_STAFF y di que el
+              equipo de la fundacion le respondera: un "no se" no resuelve la
+              consulta del paciente.
             - NUNCA reveles ni asumas informacion de otro paciente distinto al que
               esta escribiendo.
             - Solo puedes clasificar la intencion en una de estas exactas (usa el
@@ -141,6 +145,25 @@ public class GeminiRestClientAdapter implements GeminiPort {
     }
 
     private String contextoComoTexto(ContextoUsuarioChatbot contexto) {
+        return contextoDelUsuario(contexto) + preguntasFrecuentesComoTexto(contexto.preguntasFrecuentes());
+    }
+
+    /**
+     * Informacion oficial cargada por la fundacion en la intranet: la unica
+     * fuente valida para GENERAL_QUERY ademas de las reglas del sistema.
+     */
+    static String preguntasFrecuentesComoTexto(List<PreguntaFrecuente> preguntas) {
+        if (preguntas == null || preguntas.isEmpty()) {
+            return "";
+        }
+        StringBuilder texto = new StringBuilder("\n\nPREGUNTAS FRECUENTES OFICIALES DE LA FUNDACION:\n");
+        for (PreguntaFrecuente p : preguntas) {
+            texto.append("- P: ").append(p.getPregunta()).append("\n  R: ").append(p.getRespuesta()).append('\n');
+        }
+        return texto.toString();
+    }
+
+    private String contextoDelUsuario(ContextoUsuarioChatbot contexto) {
         if (!contexto.autenticado()) {
             return "El usuario NO ha iniciado sesion. Si pide consultar, agendar, confirmar, reprogramar o "
                     + "cancelar una cita, indicale amablemente que primero debe iniciar sesion (o registrarse si no tiene cuenta).";

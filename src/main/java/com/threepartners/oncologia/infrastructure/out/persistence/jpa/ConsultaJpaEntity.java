@@ -70,4 +70,13 @@ public class ConsultaJpaEntity {
 
     @Column(columnDefinition = "TEXT")
     private String observacion;
+
+    @Column(nullable = false)
+    private int turnos;
+
+    @Column(name = "ultima_actividad_en", nullable = false)
+    private Instant ultimaActividadEn;
+
+    @Column(name = "nota_resolucion", columnDefinition = "TEXT")
+    private String notaResolucion;
 }

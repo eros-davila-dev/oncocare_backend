@@ -33,6 +33,9 @@ public class ConversacionChatbotJpaEntity {
     @Column(name = "sesion_id", length = 100)
     private String sesionId;
 
+    @Column(name = "consulta_id")
+    private Long consultaId;
+
     @Column(name = "mensaje_usuario", columnDefinition = "TEXT", nullable = false)
     private String mensajeUsuario;
 
