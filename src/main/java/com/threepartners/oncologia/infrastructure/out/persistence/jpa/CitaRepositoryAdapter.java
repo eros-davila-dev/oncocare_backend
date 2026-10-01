@@ -3,11 +3,13 @@ package com.threepartners.oncologia.infrastructure.out.persistence.jpa;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
+import com.threepartners.oncologia.domain.cita.OrigenCita;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
 import com.threepartners.oncologia.domain.shared.Pagina;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -50,6 +52,12 @@ public class CitaRepositoryAdapter implements CitaRepositoryPort {
                 .toList();
     }
 
+    @Override
+    public boolean existeCapturaPretest(Long pacienteId, LocalDate fecha, LocalTime hora) {
+        return jpaRepository.existsByPacienteIdAndFechaAndHoraAndOrigen(pacienteId, fecha,
+                hora != null ? hora : LocalTime.MIDNIGHT, OrigenCita.CAPTURA_PRETEST);
+    }
+
     private static CitaJpaEntity aEntidad(Cita cita) {
         return CitaJpaEntity.builder()
                 .id(cita.getId())
@@ -60,6 +68,12 @@ public class CitaRepositoryAdapter implements CitaRepositoryPort {
                 .tipoConsulta(cita.getTipoConsulta())
                 .estado(cita.getEstado())
                 .observaciones(cita.getObservaciones())
+                .origen(cita.getOrigen() != null ? cita.getOrigen() : OrigenCita.INTRANET)
+                .fechaCreacion(cita.getFechaCreacion() != null ? cita.getFechaCreacion() : Instant.now())
+                .fechaHoraDesenlace(cita.getFechaHoraDesenlace())
+                .desenlaceRegistradoPor(cita.getDesenlaceRegistradoPor())
+                .cierreAutomatico(cita.isCierreAutomatico())
+                .vecesReprogramada(cita.getVecesReprogramada())
                 .build();
     }
 
@@ -73,6 +87,12 @@ public class CitaRepositoryAdapter implements CitaRepositoryPort {
                 .tipoConsulta(entidad.getTipoConsulta())
                 .estado(entidad.getEstado())
                 .observaciones(entidad.getObservaciones())
+                .origen(entidad.getOrigen())
+                .fechaCreacion(entidad.getFechaCreacion())
+                .fechaHoraDesenlace(entidad.getFechaHoraDesenlace())
+                .desenlaceRegistradoPor(entidad.getDesenlaceRegistradoPor())
+                .cierreAutomatico(entidad.isCierreAutomatico())
+                .vecesReprogramada(entidad.getVecesReprogramada())
                 .build();
     }
 }

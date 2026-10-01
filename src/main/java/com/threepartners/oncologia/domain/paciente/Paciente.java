@@ -35,7 +35,6 @@ public class Paciente {
     private String contactoEmergenciaTelefono;
     private boolean activo;
     private Instant fechaRegistro;
-    private Integer tiempoRegistroSegundos;
 
     public int edad() {
         if (fechaNacimiento == null) {

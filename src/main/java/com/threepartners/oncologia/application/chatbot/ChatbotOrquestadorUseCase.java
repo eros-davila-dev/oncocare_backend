@@ -14,6 +14,7 @@ import com.threepartners.oncologia.domain.chatbot.GeminiPort;
 import com.threepartners.oncologia.domain.chatbot.InterpretacionChatbot;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
+import com.threepartners.oncologia.domain.cita.OrigenCita;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
@@ -235,7 +236,8 @@ public class ChatbotOrquestadorUseCase {
                 .tipoConsulta(interpretacion.entidad("motivo") != null ? interpretacion.entidad("motivo") : "Consulta oncologica")
                 .build();
 
-        Cita creada = agendarCitaUseCase.ejecutar(nuevaCita, usuarioAutenticadoId, rolAutenticado, ipOrigen);
+        nuevaCita.setOrigen(OrigenCita.CHATBOT_WEB);
+        Cita creada = agendarCitaUseCase.ejecutar(nuevaCita, null, usuarioAutenticadoId, rolAutenticado, ipOrigen);
         return "Listo, agendamos tu cita para el %s a las %s.".formatted(creada.getFecha(), creada.getHora());
     }
 

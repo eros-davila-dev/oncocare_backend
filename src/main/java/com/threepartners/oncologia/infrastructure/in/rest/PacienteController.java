@@ -46,7 +46,7 @@ public class PacienteController {
     @PostMapping("/mi-perfil")
     public ResponseEntity<PacienteResponseDto> completarMiPerfil(@Valid @RequestBody PacienteRequestDto dto, HttpServletRequest request) {
         var paciente = completarPerfilPacienteUseCase.ejecutar(
-                AutenticacionActual.usuarioId(), mapper.aDominio(dto), AutenticacionActual.ipOrigen(request));
+                AutenticacionActual.usuarioId(), mapper.aDominio(dto), dto.medicionId(), AutenticacionActual.ipOrigen(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.aResponse(paciente));
     }
 
@@ -58,14 +58,14 @@ public class PacienteController {
     @PostMapping
     public ResponseEntity<PacienteResponseDto> registrar(@Valid @RequestBody PacienteRequestDto dto, HttpServletRequest request) {
         var paciente = registrarPacienteUseCase.ejecutar(
-                mapper.aDominio(dto), AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request));
+                mapper.aDominio(dto), dto.medicionId(), AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.aResponse(paciente));
     }
 
     @PutMapping("/{id}")
     public PacienteResponseDto actualizar(@PathVariable Long id, @Valid @RequestBody PacienteRequestDto dto, HttpServletRequest request) {
         var paciente = actualizarPacienteUseCase.ejecutar(
-                id, mapper.aDominio(dto), AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request));
+                id, mapper.aDominio(dto), dto.medicionId(), AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request));
         return mapper.aResponse(paciente);
     }
 

@@ -2,6 +2,7 @@ package com.threepartners.oncologia.infrastructure.in.rest;
 
 import com.threepartners.oncologia.application.dashboard.ConsultarIndicadoresUseCase;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.dashboard.IndicadoresResponseDto;
+import com.threepartners.oncologia.infrastructure.in.rest.dto.estudio.IndicadoresDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,12 +24,11 @@ public class DashboardController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
 
-        var indicadores = consultarIndicadoresUseCase.ejecutar(desde, hasta);
+        var resumen = consultarIndicadoresUseCase.ejecutar(desde, hasta);
         return new IndicadoresResponseDto(
-                indicadores.tiempoPromedioRegistroSegundos(),
-                indicadores.tasaAusentismoPorcentaje(),
-                indicadores.consultasAtendidas(),
-                indicadores.citasTotales(),
-                indicadores.cumplimientoTratamientoPorcentaje());
+                resumen.periodo().desde(),
+                resumen.periodo().hasta(),
+                IndicadoresDto.de(resumen.indicadores()),
+                resumen.cumplimientoTratamientoPorcentaje());
     }
 }

@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -63,7 +62,11 @@ public record PacienteRequestDto(
         @Pattern(regexp = "^[0-9]{7,15}$", message = "El telefono del contacto de emergencia debe contener entre 7 y 15 digitos")
         String contactoEmergenciaTelefono,
 
-        @PositiveOrZero(message = "El tiempo de registro no puede ser negativo")
-        Integer tiempoRegistroSegundos
+        /**
+         * Sesion de medicion abierta con POST /mediciones/registro al mostrar
+         * el formulario (indicador TPR). El tiempo lo mide el servidor; el
+         * cliente solo informa a que sesion corresponde este guardado.
+         */
+        Long medicionId
 ) {
 }

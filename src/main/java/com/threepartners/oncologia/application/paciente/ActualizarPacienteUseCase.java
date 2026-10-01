@@ -1,8 +1,10 @@
 package com.threepartners.oncologia.application.paciente;
 
+import com.threepartners.oncologia.application.estudio.CerrarMedicionRegistroService;
 import com.threepartners.oncologia.domain.auditoria.ResultadoAuditoria;
 import com.threepartners.oncologia.domain.auditoria.event.PacienteActualizadoEvent;
 import com.threepartners.oncologia.domain.paciente.ConvenioSeguro;
+import com.threepartners.oncologia.domain.estudio.TipoMedicion;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.exception.ConflictoDeNegocioException;
@@ -21,10 +23,11 @@ public class ActualizarPacienteUseCase {
 
     private final PacienteRepositoryPort pacienteRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final CerrarMedicionRegistroService cerrarMedicionRegistroService;
 
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @Transactional
-    public Paciente ejecutar(Long id, Paciente datos, Long usuarioEjecutorId, String ipOrigen) {
+    public Paciente ejecutar(Long id, Paciente datos, Long medicionId, Long usuarioEjecutorId, String ipOrigen) {
         Paciente existente = pacienteRepositoryPort.buscarPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Paciente", id));
 
@@ -52,6 +55,8 @@ public class ActualizarPacienteUseCase {
         existente.setContactoEmergenciaTelefono(datos.getContactoEmergenciaTelefono());
 
         Paciente actualizado = pacienteRepositoryPort.guardar(existente);
+        cerrarMedicionRegistroService.cerrar(medicionId, TipoMedicion.ACTUALIZACION_PACIENTE, usuarioEjecutorId,
+                actualizado.getId(), actualizado.getId());
 
         eventPublisher.publishEvent(new PacienteActualizadoEvent(
                 usuarioEjecutorId,

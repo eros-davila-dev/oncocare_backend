@@ -15,4 +15,7 @@ public interface CicloTratamientoRepositoryPort {
     List<CicloTratamiento> listarPorPaciente(Long pacienteId);
 
     Pagina<CicloTratamiento> listar(Long pacienteId, TipoTratamiento tipo, CriterioPaginacion criterio);
+
+    /** Promedio de avance de los esquemas (sesion actual / total), en porcentaje; null si no hay ciclos. */
+    Double promedioCumplimiento();
 }

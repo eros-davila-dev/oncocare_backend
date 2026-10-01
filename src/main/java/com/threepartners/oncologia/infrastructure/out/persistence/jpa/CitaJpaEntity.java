@@ -1,6 +1,7 @@
 package com.threepartners.oncologia.infrastructure.out.persistence.jpa;
 
 import com.threepartners.oncologia.domain.cita.EstadoCita;
+import com.threepartners.oncologia.domain.cita.OrigenCita;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -34,7 +36,7 @@ public class CitaJpaEntity {
     @Column(name = "paciente_id", nullable = false)
     private Long pacienteId;
 
-    @Column(name = "medico_id", nullable = false)
+    @Column(name = "medico_id")
     private Long medicoId;
 
     @Column(nullable = false)
@@ -52,4 +54,23 @@ public class CitaJpaEntity {
 
     @Column(columnDefinition = "TEXT")
     private String observaciones;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 25)
+    private OrigenCita origen;
+
+    @Column(name = "fecha_creacion", nullable = false)
+    private Instant fechaCreacion;
+
+    @Column(name = "fecha_hora_desenlace")
+    private Instant fechaHoraDesenlace;
+
+    @Column(name = "desenlace_registrado_por")
+    private Long desenlaceRegistradoPor;
+
+    @Column(name = "cierre_automatico", nullable = false)
+    private boolean cierreAutomatico;
+
+    @Column(name = "veces_reprogramada", nullable = false)
+    private int vecesReprogramada;
 }

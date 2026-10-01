@@ -47,7 +47,7 @@ public class CitaController {
 
     @PostMapping
     public ResponseEntity<CitaResponseDto> agendar(@Valid @RequestBody CitaRequestDto dto, HttpServletRequest request) {
-        var cita = agendarCitaUseCase.ejecutar(mapper.aDominio(dto),
+        var cita = agendarCitaUseCase.ejecutar(mapper.aDominio(dto), dto.medicionId(),
                 AutenticacionActual.usuarioId(), AutenticacionActual.rol(), AutenticacionActual.ipOrigen(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.aResponse(cita));
     }
@@ -72,13 +72,15 @@ public class CitaController {
     }
 
     @PatchMapping("/{id}/atender")
-    public CitaResponseDto atender(@PathVariable Long id) {
-        return mapper.aResponse(registrarAsistenciaCitaUseCase.marcarAtendida(id));
+    public CitaResponseDto atender(@PathVariable Long id, HttpServletRequest request) {
+        return mapper.aResponse(registrarAsistenciaCitaUseCase.marcarAtendida(
+                id, AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request)));
     }
 
     @PatchMapping("/{id}/no-asistio")
-    public CitaResponseDto marcarNoAsistio(@PathVariable Long id) {
-        return mapper.aResponse(registrarAsistenciaCitaUseCase.marcarNoAsistio(id));
+    public CitaResponseDto marcarNoAsistio(@PathVariable Long id, HttpServletRequest request) {
+        return mapper.aResponse(registrarAsistenciaCitaUseCase.marcarNoAsistio(
+                id, AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request)));
     }
 
     /**

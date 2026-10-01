@@ -46,4 +46,7 @@ public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long> {
     long countByEstadoAndFechaBetween(EstadoCita estado, LocalDate desde, LocalDate hasta);
 
     long countByFechaBetween(LocalDate desde, LocalDate hasta);
+
+    boolean existsByPacienteIdAndFechaAndHoraAndOrigen(Long pacienteId, LocalDate fecha, LocalTime hora,
+                                                        com.threepartners.oncologia.domain.cita.OrigenCita origen);
 }

@@ -94,7 +94,6 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .contactoEmergenciaTelefono(paciente.getContactoEmergenciaTelefono())
                 .activo(paciente.isActivo())
                 .fechaRegistro(paciente.getFechaRegistro())
-                .tiempoRegistroSegundos(paciente.getTiempoRegistroSegundos())
                 .build();
     }
 
@@ -118,7 +117,6 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .contactoEmergenciaTelefono(entidad.getContactoEmergenciaTelefono())
                 .activo(entidad.isActivo())
                 .fechaRegistro(entidad.getFechaRegistro())
-                .tiempoRegistroSegundos(entidad.getTiempoRegistroSegundos())
                 .build();
     }
 
@@ -141,7 +139,6 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .contactoEmergenciaTelefono(p.getContactoEmergenciaTelefono())
                 .activo(Boolean.TRUE.equals(p.getActivo()))
                 .fechaRegistro(p.getFechaRegistro())
-                .tiempoRegistroSegundos(p.getTiempoRegistroSegundos())
                 .build();
 
         return new PacienteResumen(

@@ -1,10 +1,13 @@
 package com.threepartners.oncologia.application.cita;
 
+import com.threepartners.oncologia.application.estudio.CerrarMedicionRegistroService;
 import com.threepartners.oncologia.domain.auditoria.ResultadoAuditoria;
 import com.threepartners.oncologia.domain.auditoria.event.CitaAgendadaEvent;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
+import com.threepartners.oncologia.domain.cita.OrigenCita;
+import com.threepartners.oncologia.domain.estudio.TipoMedicion;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.exception.ConflictoDeNegocioException;
@@ -19,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+
 @Service
 @RequiredArgsConstructor
 public class AgendarCitaUseCase {
@@ -27,10 +32,17 @@ public class AgendarCitaUseCase {
     private final PacienteRepositoryPort pacienteRepositoryPort;
     private final UsuarioRepositoryPort usuarioRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final CerrarMedicionRegistroService cerrarMedicionRegistroService;
+    private final Clock clock;
 
+    /**
+     * @param medicionId sesion de medicion del TPR abierta al mostrar el
+     *                   formulario (null si la cita no viene de un formulario,
+     *                   p. ej. el chatbot); se cierra en esta misma transaccion.
+     */
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO', 'PACIENTE')")
     @Transactional
-    public Cita ejecutar(Cita cita, Long usuarioEjecutorId, Rol rolEjecutor, String ipOrigen) {
+    public Cita ejecutar(Cita cita, Long medicionId, Long usuarioEjecutorId, Rol rolEjecutor, String ipOrigen) {
         Paciente paciente = pacienteRepositoryPort.buscarPorId(cita.getPacienteId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Paciente", cita.getPacienteId()));
 
@@ -52,7 +64,13 @@ public class AgendarCitaUseCase {
         }
 
         cita.setEstado(EstadoCita.PROGRAMADA);
+        cita.setFechaCreacion(clock.instant());
+        if (cita.getOrigen() == null) {
+            cita.setOrigen(rolEjecutor == Rol.PACIENTE ? OrigenCita.PORTAL : OrigenCita.INTRANET);
+        }
         Cita guardada = citaRepositoryPort.guardar(cita);
+        cerrarMedicionRegistroService.cerrar(medicionId, TipoMedicion.REGISTRO_CITA, usuarioEjecutorId,
+                guardada.getPacienteId(), guardada.getId());
 
         eventPublisher.publishEvent(new CitaAgendadaEvent(
                 usuarioEjecutorId,

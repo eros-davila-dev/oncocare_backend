@@ -83,6 +83,4 @@ public class PacienteJpaEntity {
     @Column(name = "fecha_registro", nullable = false)
     private Instant fechaRegistro;
 
-    @Column(name = "tiempo_registro_segundos")
-    private Integer tiempoRegistroSegundos;
 }

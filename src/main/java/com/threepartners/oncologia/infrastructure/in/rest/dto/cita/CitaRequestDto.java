@@ -25,6 +25,9 @@ public record CitaRequestDto(
         @NotBlank(message = "El tipo de consulta es obligatorio")
         String tipoConsulta,
 
-        String observaciones
+        String observaciones,
+
+        /** Sesion de medicion del TPR abierta al mostrar el formulario (POST /mediciones/registro). */
+        Long medicionId
 ) {
 }

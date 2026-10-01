@@ -34,9 +34,6 @@ public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, 
             """)
     Page<PacienteJpaEntity> buscar(@Param("texto") String texto, Pageable pageable);
 
-    @Query("SELECT AVG(p.tiempoRegistroSegundos) FROM PacienteJpaEntity p WHERE p.tiempoRegistroSegundos IS NOT NULL")
-    Double promedioTiempoRegistroSegundos();
-
     /**
      * "En tratamiento" = tiene al menos un ciclo PROGRAMADO (sesiones
      * pendientes) y su ciclo mas reciente (por fecha_sesion) no esta
@@ -74,7 +71,6 @@ public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, 
                     p.contacto_emergencia_telefono AS contacto_emergencia_telefono,
                     p.activo AS activo,
                     p.fecha_registro AS fecha_registro,
-                    p.tiempo_registro_segundos AS tiempo_registro_segundos,
                     u.nombres AS medico_nombre,
                     u.especialidad AS medico_especialidad,
                     (SELECT MAX(c.fecha) FROM cita c WHERE c.paciente_id = p.id AND c.estado = 'ATENDIDA') AS ultima_cita,

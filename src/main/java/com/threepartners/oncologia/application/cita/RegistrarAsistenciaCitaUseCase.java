@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.application.cita;
 
+import com.threepartners.oncologia.domain.auditoria.event.OperacionAuditadaEvent;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
 import com.threepartners.oncologia.domain.paciente.Paciente;
@@ -7,31 +8,48 @@ import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.exception.RecursoNoEncontradoException;
 import com.threepartners.oncologia.domain.usuario.Rol;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+
+/**
+ * Desenlace de la cita: es el dato del indicador TNS (ausentismo). Se guarda
+ * quien lo registro y cuando, y queda en la auditoria.
+ */
 @Service
 @RequiredArgsConstructor
 public class RegistrarAsistenciaCitaUseCase {
 
     private final CitaRepositoryPort citaRepositoryPort;
     private final PacienteRepositoryPort pacienteRepositoryPort;
+    private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @Transactional
-    public Cita marcarAtendida(Long citaId) {
+    public Cita marcarAtendida(Long citaId, Long usuarioEjecutorId, String ipOrigen) {
         Cita cita = obtener(citaId);
-        cita.atender();
-        return citaRepositoryPort.guardar(cita);
+        String previo = "estado=" + cita.getEstado();
+        cita.atender(usuarioEjecutorId, clock.instant());
+        Cita guardada = citaRepositoryPort.guardar(cita);
+        eventPublisher.publishEvent(OperacionAuditadaEvent.exito(usuarioEjecutorId, "CITA_ATENDIDA", "CITA",
+                citaId, previo, "estado=ATENDIDA", ipOrigen));
+        return guardada;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @Transactional
-    public Cita marcarNoAsistio(Long citaId) {
+    public Cita marcarNoAsistio(Long citaId, Long usuarioEjecutorId, String ipOrigen) {
         Cita cita = obtener(citaId);
-        cita.marcarNoAsistio();
-        return citaRepositoryPort.guardar(cita);
+        String previo = "estado=" + cita.getEstado();
+        cita.marcarNoAsistio(usuarioEjecutorId, clock.instant(), false);
+        Cita guardada = citaRepositoryPort.guardar(cita);
+        eventPublisher.publishEvent(OperacionAuditadaEvent.exito(usuarioEjecutorId, "CITA_NO_ASISTIO", "CITA",
+                citaId, previo, "estado=NO_ASISTIO", ipOrigen));
+        return guardada;
     }
 
     /**

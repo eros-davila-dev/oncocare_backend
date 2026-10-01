@@ -19,4 +19,7 @@ public interface CitaRepositoryPort {
     Pagina<Cita> listar(Long pacienteId, Long medicoId, LocalDate desde, LocalDate hasta, EstadoCita estado, CriterioPaginacion criterio);
 
     List<Cita> listarProximasEnVentana(LocalDateTime desde, LocalDateTime hasta);
+
+    /** Evita importar dos veces la misma fila de la ficha de ausentismo del pretest. */
+    boolean existeCapturaPretest(Long pacienteId, LocalDate fecha, java.time.LocalTime hora);
 }

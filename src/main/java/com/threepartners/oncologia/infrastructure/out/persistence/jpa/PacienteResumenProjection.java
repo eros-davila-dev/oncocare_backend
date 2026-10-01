@@ -44,8 +44,6 @@ public interface PacienteResumenProjection {
 
     Instant getFechaRegistro();
 
-    Integer getTiempoRegistroSegundos();
-
     String getMedicoNombre();
 
     String getMedicoEspecialidad();

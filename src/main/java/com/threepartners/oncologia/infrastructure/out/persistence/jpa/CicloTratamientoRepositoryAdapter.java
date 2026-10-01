@@ -67,4 +67,9 @@ public class CicloTratamientoRepositoryAdapter implements CicloTratamientoReposi
                 .observaciones(entidad.getObservaciones())
                 .build();
     }
+
+    @Override
+    public Double promedioCumplimiento() {
+        return jpaRepository.promedioCumplimiento();
+    }
 }

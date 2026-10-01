@@ -1,7 +1,9 @@
 package com.threepartners.oncologia.application.paciente;
 
+import com.threepartners.oncologia.application.estudio.CerrarMedicionRegistroService;
 import com.threepartners.oncologia.domain.auditoria.ResultadoAuditoria;
 import com.threepartners.oncologia.domain.auditoria.event.PacienteRegistradoEvent;
+import com.threepartners.oncologia.domain.estudio.TipoMedicion;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.exception.ConflictoDeNegocioException;
@@ -14,16 +16,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.Instant;
+import java.time.Clock;
 
 /**
  * Paso 2 del flujo de autoservicio (seccion 7), ejecutado por el propio
  * paciente ya autenticado (cuenta verificada): crea el registro clinico
- * (Paciente) vinculado a su cuenta. tiempoRegistroSegundos mide el flujo
- * completo (creacion de cuenta -> perfil completado), a diferencia del
- * registro asistido por staff, que solo mide el tiempo de llenado del
- * formulario (seccion 20).
+ * (Paciente) vinculado a su cuenta. El tiempo de llenado del formulario se
+ * mide con la sesion de medicion (canal PORTAL) que el propio portal abre al
+ * mostrarlo; se reporta separado del registro asistido por el personal.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,10 +32,12 @@ public class CompletarPerfilPacienteUseCase {
     private final PacienteRepositoryPort pacienteRepositoryPort;
     private final UsuarioRepositoryPort usuarioRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final CerrarMedicionRegistroService cerrarMedicionRegistroService;
+    private final Clock clock;
 
     @PreAuthorize("hasRole('PACIENTE')")
     @Transactional
-    public Paciente ejecutar(Long usuarioAutenticadoId, Paciente datos, String ipOrigen) {
+    public Paciente ejecutar(Long usuarioAutenticadoId, Paciente datos, Long medicionId, String ipOrigen) {
         Usuario cuenta = usuarioRepositoryPort.buscarPorId(usuarioAutenticadoId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", usuarioAutenticadoId));
 
@@ -54,10 +56,11 @@ public class CompletarPerfilPacienteUseCase {
         datos.setUsuarioId(usuarioAutenticadoId);
         datos.setEmail(email);
         datos.setActivo(true);
-        datos.setFechaRegistro(Instant.now());
-        datos.setTiempoRegistroSegundos((int) Duration.between(cuenta.getFechaCreacion(), Instant.now()).toSeconds());
+        datos.setFechaRegistro(clock.instant());
 
         Paciente guardado = pacienteRepositoryPort.guardar(datos);
+        cerrarMedicionRegistroService.cerrar(medicionId, TipoMedicion.REGISTRO_PACIENTE, usuarioAutenticadoId,
+                guardado.getId(), guardado.getId());
 
         eventPublisher.publishEvent(new PacienteRegistradoEvent(
                 usuarioAutenticadoId,

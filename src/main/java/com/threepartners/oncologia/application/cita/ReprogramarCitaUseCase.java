@@ -4,7 +4,6 @@ import com.threepartners.oncologia.domain.auditoria.ResultadoAuditoria;
 import com.threepartners.oncologia.domain.auditoria.event.CitaReprogramadaEvent;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
-import com.threepartners.oncologia.domain.cita.EstadoCita;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.exception.ConflictoDeNegocioException;
@@ -41,9 +40,7 @@ public class ReprogramarCitaUseCase {
 
         String valoresPrevios = "fecha=%s;hora=%s".formatted(cita.getFecha(), cita.getHora());
 
-        cita.setFecha(nuevaFecha);
-        cita.setHora(nuevaHora);
-        cita.setEstado(EstadoCita.PROGRAMADA);
+        cita.reprogramar(nuevaFecha, nuevaHora);
         Cita actualizada = citaRepositoryPort.guardar(cita);
 
         eventPublisher.publishEvent(new CitaReprogramadaEvent(
