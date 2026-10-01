@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.infrastructure.in.rest.dto.estudio;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.threepartners.oncologia.domain.estudio.AlcanceIndicador;
 import com.threepartners.oncologia.domain.estudio.ComparativoIndicadores;
 import com.threepartners.oncologia.domain.estudio.IndicadoresEstudio;
@@ -7,6 +8,7 @@ import com.threepartners.oncologia.domain.estudio.PeriodoMedicion;
 
 import java.time.LocalDate;
 
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public record ComparativoIndicadoresResponseDto(
         AlcanceIndicador alcance,
         FaseIndicadoresDto pretest,
@@ -32,6 +34,7 @@ public record ComparativoIndicadoresResponseDto(
         }
     }
 
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     public record VariacionDto(Double diferencia, Double porcentaje) {
 
         static VariacionDto de(ComparativoIndicadores.Variacion v) {

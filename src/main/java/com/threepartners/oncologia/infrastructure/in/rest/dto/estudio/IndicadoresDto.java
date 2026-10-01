@@ -1,11 +1,15 @@
 package com.threepartners.oncologia.infrastructure.in.rest.dto.estudio;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.threepartners.oncologia.domain.estudio.IndicadoresEstudio;
 
 /**
  * Los tres indicadores de la tesis con su n. Un valor null significa "sin
- * datos" (denominador cero), no cero.
+ * datos" (denominador cero), no cero; se serializa siempre (aunque la
+ * aplicacion omite nulos por defecto) para que el cliente distinga "sin
+ * datos" de un campo ausente.
  */
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public record IndicadoresDto(
         Double tiempoPromedioRegistroMinutos,
         long registros,

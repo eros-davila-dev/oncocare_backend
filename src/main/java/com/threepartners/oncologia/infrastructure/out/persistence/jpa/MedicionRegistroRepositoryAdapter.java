@@ -62,7 +62,12 @@ public class MedicionRegistroRepositoryAdapter implements MedicionRegistroReposi
         var pageable = PaginacionMapper.aPageable(
                 new CriterioPaginacion(criterio.numeroPagina(), criterio.tamanoPagina(), "inicio", false), "inicio");
         return PaginacionMapper.aPagina(
-                jpaRepository.filtrar(desde, hasta, tipo, canal, estado, pageable),
+                jpaRepository.findAll(FiltrosJpa.todas(
+                        FiltrosJpa.desde("inicio", desde),
+                        FiltrosJpa.antesDe("inicio", hasta),
+                        FiltrosJpa.igual("tipo", tipo),
+                        FiltrosJpa.igual("canal", canal),
+                        FiltrosJpa.igual("estado", estado)), pageable),
                 MedicionRegistroRepositoryAdapter::aDominio);
     }
 

@@ -53,7 +53,11 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
         var pageable = PaginacionMapper.aPageable(
                 new CriterioPaginacion(criterio.numeroPagina(), criterio.tamanoPagina(), "abiertaEn", false), "abiertaEn");
         return PaginacionMapper.aPagina(
-                jpaRepository.filtrar(desde, hasta, canal, resultado, pageable),
+                jpaRepository.findAll(FiltrosJpa.todas(
+                        FiltrosJpa.desde("abiertaEn", desde),
+                        FiltrosJpa.antesDe("abiertaEn", hasta),
+                        FiltrosJpa.igual("canal", canal),
+                        FiltrosJpa.igual("resultado", resultado)), pageable),
                 ConsultaRepositoryAdapter::aDominio);
     }
 

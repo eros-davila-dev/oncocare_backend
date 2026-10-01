@@ -25,7 +25,11 @@ public class ConsultarPacienteUseCase {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Paciente", id));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MEDICO', 'RECEPCIONISTA')")
+    /**
+     * INVESTIGADOR solo lectura: necesita ubicar a los pacientes para
+     * incluirlos en la muestra del estudio con su consentimiento.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEDICO', 'RECEPCIONISTA', 'INVESTIGADOR')")
     @Transactional(readOnly = true)
     public Pagina<Paciente> buscar(String textoBusqueda, CriterioPaginacion criterio) {
         return pacienteRepositoryPort.buscar(textoBusqueda, criterio);
