@@ -43,6 +43,38 @@ public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long> {
             """, nativeQuery = true)
     List<CitaJpaEntity> listarProximasEnVentana(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
 
+    @Query("""
+            SELECT c, p.nombres, p.apellidos, p.documentoIdentidad, p.telefono, u.nombres
+            FROM CitaJpaEntity c
+            JOIN PacienteJpaEntity p ON p.id = c.pacienteId
+            LEFT JOIN UsuarioJpaEntity u ON u.id = c.medicoId
+            WHERE c.fecha = :fecha
+              AND c.origen <> com.threepartners.oncologia.domain.cita.OrigenCita.CAPTURA_PRETEST
+            ORDER BY c.hora
+            """)
+    List<Object[]> agendaDelDia(@Param("fecha") LocalDate fecha);
+
+    @Query("""
+            SELECT c, p.nombres, p.apellidos, p.documentoIdentidad, p.telefono, u.nombres
+            FROM CitaJpaEntity c
+            JOIN PacienteJpaEntity p ON p.id = c.pacienteId
+            LEFT JOIN UsuarioJpaEntity u ON u.id = c.medicoId
+            WHERE c.fecha < :antesDe
+              AND c.estado IN (com.threepartners.oncologia.domain.cita.EstadoCita.PROGRAMADA,
+                               com.threepartners.oncologia.domain.cita.EstadoCita.CONFIRMADA)
+              AND c.origen <> com.threepartners.oncologia.domain.cita.OrigenCita.CAPTURA_PRETEST
+            ORDER BY c.fecha, c.hora
+            """)
+    List<Object[]> pendientesDeCierre(@Param("antesDe") LocalDate antesDe);
+
+    @Query(value = """
+            SELECT * FROM cita c
+            WHERE c.estado IN ('PROGRAMADA', 'CONFIRMADA')
+              AND c.origen <> 'CAPTURA_PRETEST'
+              AND (c.fecha + c.hora) < :limite
+            """, nativeQuery = true)
+    List<CitaJpaEntity> sinDesenlaceAntesDe(@Param("limite") LocalDateTime limite);
+
     long countByEstadoAndFechaBetween(EstadoCita estado, LocalDate desde, LocalDate hasta);
 
     long countByFechaBetween(LocalDate desde, LocalDate hasta);

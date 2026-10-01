@@ -3,6 +3,10 @@ package com.threepartners.oncologia.application.cita;
 import com.threepartners.oncologia.domain.auditoria.event.OperacionAuditadaEvent;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
+import com.threepartners.oncologia.domain.cita.EstadoCita;
+import com.threepartners.oncologia.domain.estudio.CorreccionMedicion;
+import com.threepartners.oncologia.domain.estudio.CorreccionMedicion.EntidadCorregida;
+import com.threepartners.oncologia.domain.estudio.CorreccionMedicionRepositoryPort;
 import com.threepartners.oncologia.domain.paciente.Paciente;
 import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import com.threepartners.oncologia.domain.shared.exception.RecursoNoEncontradoException;
@@ -14,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDate;
 
 /**
  * Desenlace de la cita: es el dato del indicador TNS (ausentismo). Se guarda
@@ -26,6 +31,7 @@ public class RegistrarAsistenciaCitaUseCase {
     private final CitaRepositoryPort citaRepositoryPort;
     private final PacienteRepositoryPort pacienteRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final CorreccionMedicionRepositoryPort correccionMedicionRepositoryPort;
     private final Clock clock;
 
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
@@ -33,6 +39,7 @@ public class RegistrarAsistenciaCitaUseCase {
     public Cita marcarAtendida(Long citaId, Long usuarioEjecutorId, String ipOrigen) {
         Cita cita = obtener(citaId);
         String previo = "estado=" + cita.getEstado();
+        cita.exigirFechaAlcanzada(LocalDate.now(clock));
         cita.atender(usuarioEjecutorId, clock.instant());
         Cita guardada = citaRepositoryPort.guardar(cita);
         eventPublisher.publishEvent(OperacionAuditadaEvent.exito(usuarioEjecutorId, "CITA_ATENDIDA", "CITA",
@@ -45,10 +52,30 @@ public class RegistrarAsistenciaCitaUseCase {
     public Cita marcarNoAsistio(Long citaId, Long usuarioEjecutorId, String ipOrigen) {
         Cita cita = obtener(citaId);
         String previo = "estado=" + cita.getEstado();
+        cita.exigirFechaAlcanzada(LocalDate.now(clock));
         cita.marcarNoAsistio(usuarioEjecutorId, clock.instant(), false);
         Cita guardada = citaRepositoryPort.guardar(cita);
         eventPublisher.publishEvent(OperacionAuditadaEvent.exito(usuarioEjecutorId, "CITA_NO_ASISTIO", "CITA",
                 citaId, previo, "estado=NO_ASISTIO", ipOrigen));
+        return guardada;
+    }
+
+    /**
+     * Corrige un desenlace ya registrado (incluido un cierre automatico). Deja
+     * el valor previo, el nuevo y el motivo en correccion_medicion: el TNS
+     * cambia, pero nunca sin rastro.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA')")
+    @Transactional
+    public Cita corregirDesenlace(Long citaId, EstadoCita nuevoEstado, String motivo, Long usuarioEjecutorId, String ipOrigen) {
+        Cita cita = obtener(citaId);
+        String previo = cita.getEstado().name() + (cita.isCierreAutomatico() ? " (cierre automatico)" : "");
+        correccionMedicionRepositoryPort.guardar(new CorreccionMedicion(null, EntidadCorregida.CITA_DESENLACE, citaId,
+                "estado", previo, String.valueOf(nuevoEstado), motivo, usuarioEjecutorId, clock.instant()));
+        cita.corregirDesenlace(nuevoEstado, usuarioEjecutorId, clock.instant());
+        Cita guardada = citaRepositoryPort.guardar(cita);
+        eventPublisher.publishEvent(OperacionAuditadaEvent.exito(usuarioEjecutorId, "CITA_DESENLACE_CORREGIDO", "CITA",
+                citaId, "estado=" + previo, "estado=" + nuevoEstado + ";motivo=" + motivo, ipOrigen));
         return guardada;
     }
 

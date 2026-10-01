@@ -2,14 +2,18 @@ package com.threepartners.oncologia.infrastructure.in.rest;
 
 import com.threepartners.oncologia.application.cita.AgendarCitaUseCase;
 import com.threepartners.oncologia.application.cita.CancelarCitaUseCase;
+import com.threepartners.oncologia.application.cita.ConsultarAgendaUseCase;
 import com.threepartners.oncologia.application.cita.ConsultarCitaUseCase;
 import com.threepartners.oncologia.application.cita.ListarCitasProximasUseCase;
 import com.threepartners.oncologia.application.cita.RegistrarAsistenciaCitaUseCase;
 import com.threepartners.oncologia.application.cita.ReprogramarCitaUseCase;
+import com.threepartners.oncologia.domain.cita.CitaAgenda;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.PaginaResponseDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CancelarCitaRequestDto;
+import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CitaAgendaResponseDto;
+import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CorregirDesenlaceRequestDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CitaRequestDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CitaResponseDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.ReprogramarCitaRequestDto;
@@ -43,6 +47,7 @@ public class CitaController {
     private final RegistrarAsistenciaCitaUseCase registrarAsistenciaCitaUseCase;
     private final ConsultarCitaUseCase consultarCitaUseCase;
     private final ListarCitasProximasUseCase listarCitasProximasUseCase;
+    private final ConsultarAgendaUseCase consultarAgendaUseCase;
     private final CitaRestMapper mapper;
 
     @PostMapping
@@ -81,6 +86,36 @@ public class CitaController {
     public CitaResponseDto marcarNoAsistio(@PathVariable Long id, HttpServletRequest request) {
         return mapper.aResponse(registrarAsistenciaCitaUseCase.marcarNoAsistio(
                 id, AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request)));
+    }
+
+    @PatchMapping("/{id}/corregir-desenlace")
+    public CitaResponseDto corregirDesenlace(@PathVariable Long id, @Valid @RequestBody CorregirDesenlaceRequestDto dto,
+                                             HttpServletRequest request) {
+        return mapper.aResponse(registrarAsistenciaCitaUseCase.corregirDesenlace(id, dto.estado(), dto.motivo(),
+                AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request)));
+    }
+
+    /**
+     * Agenda del dia para recepcion: donde se registra si el paciente llego
+     * (indicador TNS). Un medico solo ve sus citas.
+     */
+    @GetMapping("/agenda")
+    public List<CitaAgendaResponseDto> agenda(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam(required = false) Long medicoId) {
+        return consultarAgendaUseCase.delDia(fecha, medicoId, AutenticacionActual.usuarioId(), AutenticacionActual.rol())
+                .stream().map(this::aAgendaResponse).toList();
+    }
+
+    @GetMapping("/pendientes-cierre")
+    public List<CitaAgendaResponseDto> pendientesDeCierre() {
+        return consultarAgendaUseCase.pendientesDeCierre(AutenticacionActual.usuarioId(), AutenticacionActual.rol())
+                .stream().map(this::aAgendaResponse).toList();
+    }
+
+    private CitaAgendaResponseDto aAgendaResponse(CitaAgenda c) {
+        return new CitaAgendaResponseDto(mapper.aResponse(c.cita()), c.pacienteNombre(), c.pacienteDocumento(),
+                c.pacienteTelefono(), c.medicoNombre());
     }
 
     /**

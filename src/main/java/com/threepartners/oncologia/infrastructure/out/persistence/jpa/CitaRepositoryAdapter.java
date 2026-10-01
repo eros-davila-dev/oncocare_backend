@@ -1,6 +1,7 @@
 package com.threepartners.oncologia.infrastructure.out.persistence.jpa;
 
 import com.threepartners.oncologia.domain.cita.Cita;
+import com.threepartners.oncologia.domain.cita.CitaAgenda;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
 import com.threepartners.oncologia.domain.cita.OrigenCita;
@@ -56,6 +57,29 @@ public class CitaRepositoryAdapter implements CitaRepositoryPort {
     public boolean existeCapturaPretest(Long pacienteId, LocalDate fecha, LocalTime hora) {
         return jpaRepository.existsByPacienteIdAndFechaAndHoraAndOrigen(pacienteId, fecha,
                 hora != null ? hora : LocalTime.MIDNIGHT, OrigenCita.CAPTURA_PRETEST);
+    }
+
+    @Override
+    public List<CitaAgenda> agendaDelDia(LocalDate fecha, Long medicoId) {
+        return jpaRepository.agendaDelDia(fecha).stream()
+                .map(CitaRepositoryAdapter::aAgenda)
+                .filter(c -> medicoId == null || medicoId.equals(c.cita().getMedicoId()))
+                .toList();
+    }
+
+    @Override
+    public List<CitaAgenda> pendientesDeCierre(LocalDate antesDe) {
+        return jpaRepository.pendientesDeCierre(antesDe).stream().map(CitaRepositoryAdapter::aAgenda).toList();
+    }
+
+    @Override
+    public List<Cita> sinDesenlaceAntesDe(LocalDateTime limite) {
+        return jpaRepository.sinDesenlaceAntesDe(limite).stream().map(CitaRepositoryAdapter::aDominio).toList();
+    }
+
+    private static CitaAgenda aAgenda(Object[] fila) {
+        return new CitaAgenda(aDominio((CitaJpaEntity) fila[0]),
+                "%s %s".formatted(fila[1], fila[2]), (String) fila[3], (String) fila[4], (String) fila[5]);
     }
 
     private static CitaJpaEntity aEntidad(Cita cita) {

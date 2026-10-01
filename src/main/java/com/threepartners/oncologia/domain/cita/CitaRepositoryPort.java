@@ -20,6 +20,18 @@ public interface CitaRepositoryPort {
 
     List<Cita> listarProximasEnVentana(LocalDateTime desde, LocalDateTime hasta);
 
+    /** Agenda de un dia (excluye citas del pretest transcritas), ordenada por hora. */
+    List<CitaAgenda> agendaDelDia(LocalDate fecha, Long medicoId);
+
+    /**
+     * Citas cuya fecha ya paso (antes de {@code antesDe}) y que siguen sin
+     * desenlace: si nadie las cierra, el TNS quedaria incompleto.
+     */
+    List<CitaAgenda> pendientesDeCierre(LocalDate antesDe);
+
+    /** Citas sin desenlace cuya fecha y hora son anteriores al limite (cierre automatico). */
+    List<Cita> sinDesenlaceAntesDe(LocalDateTime limite);
+
     /** Evita importar dos veces la misma fila de la ficha de ausentismo del pretest. */
     boolean existeCapturaPretest(Long pacienteId, LocalDate fecha, java.time.LocalTime hora);
 }

@@ -37,6 +37,10 @@ app:
     # Jobs programados con ShedLock (SchedulingConfig). En false no se
     # registra ningun @Scheduled (util en tests de integracion).
     habilitados: ${JOBS_HABILITADOS:true}
+  agenda:
+    # Horas despues de la cita en que, si nadie registro el desenlace, se
+    # marca NO_ASISTIO automaticamente (indicador TNS; corregible con motivo).
+    horas-cierre-automatico: ${AGENDA_HORAS_CIERRE_AUTOMATICO:48}
   estudio:
     # Una sesion de medicion del TPR abierta y no guardada en este tiempo se
     # marca ABANDONADA y queda fuera del promedio.

@@ -76,6 +76,41 @@ class CitaTest {
     }
 
     @Test
+    void noSeRegistraElDesenlaceDeUnaCitaFutura() {
+        Cita cita = programada();
+
+        assertThatThrownBy(() -> cita.exigirFechaAlcanzada(LocalDate.of(2026, 10, 4)))
+                .isInstanceOf(ValidacionDeNegocioException.class);
+        cita.exigirFechaAlcanzada(LocalDate.of(2026, 10, 5));
+    }
+
+    @Test
+    void corregirElDesenlaceCambiaElEstadoYQuitaLaMarcaDeCierreAutomatico() {
+        Cita cita = programada();
+        cita.marcarNoAsistio(null, AHORA, true);
+
+        cita.corregirDesenlace(EstadoCita.ATENDIDA, 9L, AHORA.plusSeconds(60));
+
+        assertThat(cita.getEstado()).isEqualTo(EstadoCita.ATENDIDA);
+        assertThat(cita.isCierreAutomatico()).isFalse();
+        assertThat(cita.getDesenlaceRegistradoPor()).isEqualTo(9L);
+    }
+
+    @Test
+    void soloSeCorrigeUnDesenlaceExistenteYHaciaOtroDesenlace() {
+        Cita sinDesenlace = programada();
+        assertThatThrownBy(() -> sinDesenlace.corregirDesenlace(EstadoCita.ATENDIDA, 9L, AHORA))
+                .isInstanceOf(ValidacionDeNegocioException.class);
+
+        Cita atendida = programada();
+        atendida.atender(9L, AHORA);
+        assertThatThrownBy(() -> atendida.corregirDesenlace(EstadoCita.ATENDIDA, 9L, AHORA))
+                .isInstanceOf(ValidacionDeNegocioException.class);
+        assertThatThrownBy(() -> atendida.corregirDesenlace(EstadoCita.CANCELADA, 9L, AHORA))
+                .isInstanceOf(ValidacionDeNegocioException.class);
+    }
+
+    @Test
     void laCapturaDelPretestNaceConSuDesenlaceYSinMedico() {
         Cita cita = Cita.capturaPretest(3L, LocalDate.of(2026, 9, 10), null, "Control", false, 4L, AHORA);
 

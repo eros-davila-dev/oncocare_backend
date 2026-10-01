@@ -107,6 +107,36 @@ public class Cita {
         this.vecesReprogramada++;
     }
 
+    /**
+     * El desenlace (atendida / no asistio) describe algo que ya ocurrio: no
+     * puede registrarse antes del dia de la cita.
+     */
+    public void exigirFechaAlcanzada(LocalDate hoy) {
+        if (fecha.isAfter(hoy)) {
+            throw new ValidacionDeNegocioException(
+                    "La cita es del " + fecha + ": su asistencia solo puede registrarse desde ese dia");
+        }
+    }
+
+    /**
+     * Corrige un desenlace mal registrado (p. ej. se marco "no asistio" a un
+     * paciente que si llego). Solo entre los dos estados de desenlace; el
+     * motivo y el valor previo se guardan como correccion auditada.
+     */
+    public void corregirDesenlace(EstadoCita nuevoEstado, Long registradoPor, Instant cuando) {
+        if (!tieneDesenlace()) {
+            throw new ValidacionDeNegocioException("La cita aun no tiene desenlace registrado: no hay nada que corregir");
+        }
+        if (nuevoEstado != EstadoCita.ATENDIDA && nuevoEstado != EstadoCita.NO_ASISTIO) {
+            throw new ValidacionDeNegocioException("El desenlace solo puede corregirse a ATENDIDA o NO_ASISTIO");
+        }
+        if (nuevoEstado == estado) {
+            throw new ValidacionDeNegocioException("La cita ya tiene el desenlace " + estado);
+        }
+        this.estado = nuevoEstado;
+        registrarDesenlace(registradoPor, cuando, false);
+    }
+
     private void registrarDesenlace(Long registradoPor, Instant cuando, boolean automatico) {
         this.fechaHoraDesenlace = cuando;
         this.desenlaceRegistradoPor = registradoPor;
