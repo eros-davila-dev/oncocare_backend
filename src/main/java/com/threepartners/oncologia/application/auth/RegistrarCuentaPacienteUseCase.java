@@ -14,7 +14,7 @@ import com.threepartners.oncologia.domain.usuario.TokenAccionCuenta;
 import com.threepartners.oncologia.domain.usuario.TokenAccionCuentaRepositoryPort;
 import com.threepartners.oncologia.domain.usuario.Usuario;
 import com.threepartners.oncologia.domain.usuario.UsuarioRepositoryPort;
-import com.threepartners.oncologia.infrastructure.out.notification.N8nNotificationAdapter;
+import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -40,7 +40,7 @@ public class RegistrarCuentaPacienteUseCase {
     private final PasswordEncoderPort passwordEncoderPort;
     private final TokenAccionCuentaRepositoryPort tokenAccionCuentaRepositoryPort;
     private final GeneradorTokenPort generadorTokenPort;
-    private final N8nNotificationAdapter n8nNotificationAdapter;
+    private final NotificadorExternoPort notificadorExternoPort;
     private final FrontendProperties frontendProperties;
     private final RegistroProperties registroProperties;
     private final ApplicationEventPublisher eventPublisher;
@@ -88,7 +88,7 @@ public class RegistrarCuentaPacienteUseCase {
                 .creadoEn(Instant.now())
                 .build());
 
-        n8nNotificationAdapter.dispararWorkflow("/webhook/notificaciones/verificacion-email", Map.of(
+        notificadorExternoPort.dispararWorkflow("/webhook/notificaciones/verificacion-email", Map.of(
                 "email", cuenta.getEmail(),
                 "nombre", cuenta.getNombres(),
                 "urlVerificacion", frontendProperties.baseUrl() + "/auth/verificar-email?token=" + tokenPlano));

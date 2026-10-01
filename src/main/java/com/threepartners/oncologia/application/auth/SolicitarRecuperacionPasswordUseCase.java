@@ -7,7 +7,7 @@ import com.threepartners.oncologia.domain.usuario.TokenAccionCuenta;
 import com.threepartners.oncologia.domain.usuario.TokenAccionCuentaRepositoryPort;
 import com.threepartners.oncologia.domain.usuario.Usuario;
 import com.threepartners.oncologia.domain.usuario.UsuarioRepositoryPort;
-import com.threepartners.oncologia.infrastructure.out.notification.N8nNotificationAdapter;
+import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +30,7 @@ public class SolicitarRecuperacionPasswordUseCase {
     private final UsuarioRepositoryPort usuarioRepositoryPort;
     private final TokenAccionCuentaRepositoryPort tokenAccionCuentaRepositoryPort;
     private final GeneradorTokenPort generadorTokenPort;
-    private final N8nNotificationAdapter n8nNotificationAdapter;
+    private final NotificadorExternoPort notificadorExternoPort;
     private final FrontendProperties frontendProperties;
 
     @Transactional
@@ -53,7 +53,7 @@ public class SolicitarRecuperacionPasswordUseCase {
                 .creadoEn(Instant.now())
                 .build());
 
-        n8nNotificationAdapter.dispararWorkflow("/webhook/notificaciones/recuperar-password", Map.of(
+        notificadorExternoPort.dispararWorkflow("/webhook/notificaciones/recuperar-password", Map.of(
                 "email", cuenta.getEmail(),
                 "nombre", cuenta.getNombres(),
                 "urlRestablecer", frontendProperties.baseUrl() + "/auth/restablecer-password?token=" + tokenPlano));

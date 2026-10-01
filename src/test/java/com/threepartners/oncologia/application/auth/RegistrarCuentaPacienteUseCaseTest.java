@@ -8,7 +8,7 @@ import com.threepartners.oncologia.domain.usuario.PasswordEncoderPort;
 import com.threepartners.oncologia.domain.usuario.TokenAccionCuentaRepositoryPort;
 import com.threepartners.oncologia.domain.usuario.Usuario;
 import com.threepartners.oncologia.domain.usuario.UsuarioRepositoryPort;
-import com.threepartners.oncologia.infrastructure.out.notification.N8nNotificationAdapter;
+import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -35,7 +35,7 @@ class RegistrarCuentaPacienteUseCaseTest {
     @Mock
     private GeneradorTokenPort generadorTokenPort;
     @Mock
-    private N8nNotificationAdapter n8nNotificationAdapter;
+    private NotificadorExternoPort notificadorExternoPort;
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
@@ -44,7 +44,7 @@ class RegistrarCuentaPacienteUseCaseTest {
     private RegistrarCuentaPacienteUseCase useCase(boolean pacientesHabilitado) {
         return new RegistrarCuentaPacienteUseCase(
                 usuarioRepositoryPort, passwordEncoderPort, tokenAccionCuentaRepositoryPort, generadorTokenPort,
-                n8nNotificationAdapter, frontendProperties, new RegistroProperties(pacientesHabilitado), eventPublisher);
+                notificadorExternoPort, frontendProperties, new RegistroProperties(pacientesHabilitado), eventPublisher);
     }
 
     @Test
@@ -54,7 +54,7 @@ class RegistrarCuentaPacienteUseCaseTest {
         assertThatThrownBy(() -> useCase.ejecutar("Ana", "ana@example.com", "Clave1234", "127.0.0.1"))
                 .isInstanceOf(RegistroNoDisponibleException.class);
 
-        verifyNoInteractions(usuarioRepositoryPort, tokenAccionCuentaRepositoryPort, n8nNotificationAdapter, eventPublisher);
+        verifyNoInteractions(usuarioRepositoryPort, tokenAccionCuentaRepositoryPort, notificadorExternoPort, eventPublisher);
     }
 
     @Test
@@ -74,7 +74,7 @@ class RegistrarCuentaPacienteUseCaseTest {
 
         verify(usuarioRepositoryPort).guardar(any(Usuario.class));
         verify(tokenAccionCuentaRepositoryPort).guardar(any());
-        verify(n8nNotificationAdapter).dispararWorkflow(anyString(), any());
+        verify(notificadorExternoPort).dispararWorkflow(anyString(), any());
         verify(eventPublisher).publishEvent(any(Object.class));
     }
 
@@ -86,6 +86,6 @@ class RegistrarCuentaPacienteUseCaseTest {
         useCase.ejecutar("Ana", "ana@example.com", "Clave1234", "127.0.0.1");
 
         verify(usuarioRepositoryPort, never()).guardar(any(Usuario.class));
-        verifyNoInteractions(n8nNotificationAdapter, eventPublisher);
+        verifyNoInteractions(notificadorExternoPort, eventPublisher);
     }
 }

@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.infrastructure.out.notification;
 
+import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -22,7 +23,7 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-public class N8nNotificationAdapter {
+public class N8nNotificationAdapter implements NotificadorExternoPort {
 
     private static final int TIMEOUT_CONEXION_MILIS = 3_000;
     private static final int TIMEOUT_LECTURA_MILIS = 5_000;
@@ -38,6 +39,7 @@ public class N8nNotificationAdapter {
         this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
+    @Override
     public void dispararWorkflow(String rutaWebhook, Map<String, Object> payload) {
         try {
             restClient.post()

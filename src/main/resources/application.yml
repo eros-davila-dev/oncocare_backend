@@ -33,6 +33,14 @@ server:
   port: ${SERVER_PORT:8080}
 
 app:
+  jobs:
+    # Jobs programados con ShedLock (SchedulingConfig). En false no se
+    # registra ningun @Scheduled (util en tests de integracion).
+    habilitados: ${JOBS_HABILITADOS:true}
+  estudio:
+    # Una sesion de medicion del TPR abierta y no guardada en este tiempo se
+    # marca ABANDONADA y queda fuera del promedio.
+    minutos-maximos-registro: ${ESTUDIO_MINUTOS_MAXIMOS_REGISTRO:60}
   jwt:
     secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
     access-token-minutos: ${JWT_ACCESS_MINUTOS:15}
