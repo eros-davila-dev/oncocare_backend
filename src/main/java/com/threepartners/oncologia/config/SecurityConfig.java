@@ -36,6 +36,8 @@ public class SecurityConfig {
             "/api/v1/chatbot/consultas/*/valoracion",
             "/api/v1/devices/webhook/**",
             "/api/v1/notificaciones/callback",
+            // Contrato con n8n: cada endpoint exige X-Webhook-Secret (IntegracionN8nController).
+            "/api/v1/integraciones/**",
             "/actuator/health",
             "/v3/api-docs/**",
             "/swagger-ui/**",

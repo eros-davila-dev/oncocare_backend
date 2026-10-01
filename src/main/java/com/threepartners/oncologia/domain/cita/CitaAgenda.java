@@ -9,6 +9,8 @@ public record CitaAgenda(
         String pacienteNombre,
         String pacienteDocumento,
         String pacienteTelefono,
-        String medicoNombre
+        String medicoNombre,
+        /** Sin Telegram, el recordatorio de esta cita lo hace recepcion por llamada. */
+        boolean pacienteConTelegram
 ) {
 }

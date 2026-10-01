@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.application.chatbot;
 
+import com.threepartners.oncologia.application.cita.AccionesCitaPacienteService;
 import com.threepartners.oncologia.application.cita.AgendarCitaUseCase;
 import com.threepartners.oncologia.application.cita.CancelarCitaUseCase;
 import com.threepartners.oncologia.application.cita.ConsultarCitaUseCase;
@@ -71,6 +72,8 @@ class ChatbotOrquestadorUseCaseTest {
     private GestorConsultasChatbot gestorConsultas;
     @Mock
     private PreguntaFrecuenteRepositoryPort preguntaFrecuenteRepositoryPort;
+    @Mock
+    private AccionesCitaPacienteService accionesCitaPacienteService;
 
     private ChatbotOrquestadorUseCase useCase;
 
@@ -82,7 +85,7 @@ class ChatbotOrquestadorUseCaseTest {
                 geminiPort, conversacionChatbotRepositoryPort, pacienteRepositoryPort, usuarioRepositoryPort,
                 consultarCitaUseCase, agendarCitaUseCase, reprogramarCitaUseCase, cancelarCitaUseCase,
                 registrarAsistenciaCitaUseCase, frontendProperties, registroProperties, gestorConsultas,
-                preguntaFrecuenteRepositoryPort, Clock.systemUTC());
+                preguntaFrecuenteRepositoryPort, Clock.systemUTC(), accionesCitaPacienteService);
         when(conversacionChatbotRepositoryPort.listarPorSesion(anyString(), any(Integer.class))).thenReturn(List.of());
         lenient().when(gestorConsultas.registrarTurno(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(Consulta.builder().id(1L).build());

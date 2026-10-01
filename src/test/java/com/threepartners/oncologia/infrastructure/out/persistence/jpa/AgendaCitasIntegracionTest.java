@@ -64,6 +64,23 @@ class AgendaCitasIntegracionTest extends PostgresIntegracionTest {
         assertThat(citas.sinDesenlaceAntesDe(LocalDateTime.of(2026, 10, 3, 10, 1))).hasSize(1);
     }
 
+    /**
+     * Regresion: con "(:p IS NULL OR ...)" PostgreSQL fallaba ("no se pudo
+     * determinar el tipo del parametro") para algunas combinaciones de
+     * filtros nulos, p. ej. paciente + desde sin estado.
+     */
+    @Test
+    void elListadoDeCitasAceptaCualquierCombinacionDeFiltrosNulos() {
+        long paciente = jdbc.queryForObject("SELECT MIN(id) FROM paciente", Long.class);
+        var criterio = com.threepartners.oncologia.domain.shared.CriterioPaginacion.de(0, 20);
+
+        assertThat(citas.listar(null, null, null, null, null, criterio).contenido()).hasSize(5);
+        assertThat(citas.listar(paciente, null, LocalDate.of(2026, 10, 3), null, null, criterio).contenido()).hasSize(4);
+        assertThat(citas.listar(null, medico, null, LocalDate.of(2026, 10, 3), null, criterio).contenido()).hasSize(2);
+        assertThat(citas.listar(paciente, null, null, null,
+                com.threepartners.oncologia.domain.cita.EstadoCita.CONFIRMADA, criterio).contenido()).hasSize(2);
+    }
+
     private void cita(long paciente, Long medicoId, String fecha, String hora, String estado, String origen) {
         jdbc.update("INSERT INTO cita (paciente_id, medico_id, fecha, hora, estado, origen) VALUES (?, ?, ?::date, ?::time, ?, ?)",
                 paciente, medicoId, fecha, hora, estado, origen);

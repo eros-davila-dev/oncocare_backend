@@ -54,4 +54,11 @@ public class InteractuarConsultaChatbotUseCase {
                 : null;
         return gestorConsultas.escalarPorPedidoDelUsuario(sesionId, canal != null ? canal : CanalConsulta.CHATBOT_WEB, pacienteId);
     }
+
+    /** "Hablar con una persona" desde Telegram: la identidad es el chat vinculado (si lo esta). */
+    @Transactional
+    public Consulta hablarConUnaPersonaPorTelegram(Long chatId) {
+        Long pacienteId = pacienteRepositoryPort.buscarPorTelegramChatId(chatId).map(Paciente::getId).orElse(null);
+        return gestorConsultas.escalarPorPedidoDelUsuario("tg-" + chatId, CanalConsulta.TELEGRAM, pacienteId);
+    }
 }

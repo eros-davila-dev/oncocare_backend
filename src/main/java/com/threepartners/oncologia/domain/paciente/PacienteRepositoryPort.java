@@ -23,6 +23,8 @@ public interface PacienteRepositoryPort {
 
     Optional<Paciente> buscarPorUsuarioId(Long usuarioId);
 
+    Optional<Paciente> buscarPorTelegramChatId(Long chatId);
+
     Pagina<Paciente> buscar(String textoBusqueda, CriterioPaginacion criterio);
 
     Pagina<PacienteResumen> buscarResumen(String textoBusqueda, EstadoTratamientoPaciente estado, CriterioPaginacion criterio);

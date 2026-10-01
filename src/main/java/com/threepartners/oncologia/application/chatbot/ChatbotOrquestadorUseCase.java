@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.application.chatbot;
 
+import com.threepartners.oncologia.application.cita.AccionesCitaPacienteService;
 import com.threepartners.oncologia.application.cita.AgendarCitaUseCase;
 import com.threepartners.oncologia.application.cita.CancelarCitaUseCase;
 import com.threepartners.oncologia.application.cita.ConsultarCitaUseCase;
@@ -40,6 +41,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.threepartners.oncologia.domain.chatbot.ResultadoAccion.ERROR_NEGOCIO;
@@ -70,6 +72,9 @@ public class ChatbotOrquestadorUseCase {
                     + "Si aun no tienes una, puedes crearla en /auth/registro.";
     private static final String MENSAJE_REQUIERE_PERFIL =
             "Antes de gestionar tus citas necesitas completar tu perfil de paciente (seccion \"Completar perfil\").";
+    private static final String MENSAJE_VINCULAR_TELEGRAM =
+            "Para consultar o gestionar tus citas por aqui, vincula tu Telegram desde el portal (Mi perfil) "
+                    + "o pide el codigo QR en recepcion. Mientras tanto puedo responder tus preguntas generales.";
     private static final String MENSAJE_REGISTRO_NO_DISPONIBLE =
             "El registro de nuevas cuentas de paciente estara disponible proximamente. Por ahora, contacta directamente a la fundacion.";
 
@@ -87,6 +92,7 @@ public class ChatbotOrquestadorUseCase {
     private final GestorConsultasChatbot gestorConsultas;
     private final PreguntaFrecuenteRepositoryPort preguntaFrecuenteRepositoryPort;
     private final Clock clock;
+    private final AccionesCitaPacienteService accionesCitaPacienteService;
 
     /**
      * Deliberadamente sin @Transactional: la llamada a Gemini es una peticion
@@ -97,16 +103,38 @@ public class ChatbotOrquestadorUseCase {
      */
     public RespuestaChatbot procesar(String sesionId, String mensajeUsuario, CanalConsulta canal,
                                      Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
+        Paciente paciente = resolverPaciente(usuarioAutenticadoId, rolAutenticado);
+        ContextoUsuarioChatbot contexto = construirContexto(usuarioAutenticadoId, rolAutenticado, paciente);
+        return procesarTurno(sesionId, mensajeUsuario, canal, contexto,
+                interpretacion -> ejecutarAccion(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen),
+                paciente);
+    }
+
+    /**
+     * Mensaje recibido por Telegram (via n8n). La identidad no viene de un
+     * JWT sino del chat vinculado: si el chat no esta vinculado, el bot
+     * responde preguntas generales e invita a vincularlo.
+     */
+    public RespuestaChatbot procesarDesdeTelegram(Long chatId, String mensajeUsuario) {
+        Paciente paciente = pacienteRepositoryPort.buscarPorTelegramChatId(chatId).orElse(null);
+        ContextoUsuarioChatbot contexto = paciente != null
+                ? new ContextoUsuarioChatbot(true, true, paciente.nombrePila())
+                : new ContextoUsuarioChatbot(false, false, null);
+        return procesarTurno("tg-" + chatId, mensajeUsuario, CanalConsulta.TELEGRAM, contexto,
+                interpretacion -> ejecutarAccionTelegram(interpretacion, paciente), paciente);
+    }
+
+    private RespuestaChatbot procesarTurno(String sesionId, String mensajeUsuario, CanalConsulta canal,
+                                           ContextoUsuarioChatbot contextoUsuario,
+                                           Function<InterpretacionChatbot, RespuestaAccion> ejecutor,
+                                           Paciente paciente) {
         Instant inicioTurno = clock.instant();
         List<ConversacionChatbot> historial = conversacionChatbotRepositoryPort.listarPorSesion(sesionId, HISTORIAL_MAXIMO);
-
-        Paciente paciente = resolverPaciente(usuarioAutenticadoId, rolAutenticado);
-        ContextoUsuarioChatbot contexto = construirContexto(usuarioAutenticadoId, rolAutenticado, paciente)
-                .conConocimiento(preguntaFrecuenteRepositoryPort.listarActivas());
+        ContextoUsuarioChatbot contexto = contextoUsuario.conConocimiento(preguntaFrecuenteRepositoryPort.listarActivas());
 
         InterpretacionChatbot interpretacion = geminiPort.interpretar(mensajeUsuario, historial, contexto);
 
-        RespuestaAccion respuesta = ejecutarAccion(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen);
+        RespuestaAccion respuesta = ejecutor.apply(interpretacion);
 
         CanalConsulta canalEfectivo = canal != null ? canal : CanalConsulta.CHATBOT_WEB;
         Consulta consulta = gestorConsultas.registrarTurno(sesionId, canalEfectivo, paciente != null ? paciente.getId() : null,
@@ -157,6 +185,65 @@ public class ChatbotOrquestadorUseCase {
             case CANCEL_APPOINTMENT -> requierePaciente(paciente, usuarioAutenticadoId, rolAutenticado, () -> cancelarProximaCita(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen));
             case RESCHEDULE_APPOINTMENT -> requierePaciente(paciente, usuarioAutenticadoId, rolAutenticado, () -> reprogramarProximaCita(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen));
             case BOOK_APPOINTMENT -> requierePaciente(paciente, usuarioAutenticadoId, rolAutenticado, () -> agendarCita(interpretacion, paciente, usuarioAutenticadoId, rolAutenticado, ipOrigen));
+        };
+    }
+
+    /**
+     * Mismas reglas que en la web, ejecutadas sobre el paciente del chat
+     * vinculado. Agendar y reprogramar requieren elegir medico y horario:
+     * se derivan a recepcion en vez de resolverse a medias por mensaje.
+     */
+    private RespuestaAccion ejecutarAccionTelegram(InterpretacionChatbot interpretacion, Paciente paciente) {
+        return switch (interpretacion.intencion()) {
+            case GENERAL_QUERY, HELP -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
+            case ESCALATE_TO_STAFF -> new RespuestaAccion(interpretacion.respuestaSugerida(), ESCALAR);
+            case REGISTER_PATIENT -> new RespuestaAccion("Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
+                    + "/auth/registro o pedir ayuda en recepcion.", INFORMATIVA);
+            default -> {
+                if (paciente == null) {
+                    yield new RespuestaAccion(MENSAJE_VINCULAR_TELEGRAM, REQUIERE_SESION);
+                }
+                try {
+                    yield accionSobreCitaTelegram(interpretacion, paciente);
+                } catch (DomainException e) {
+                    yield new RespuestaAccion("No pude completar la accion: " + e.getMessage(), ERROR_NEGOCIO);
+                }
+            }
+        };
+    }
+
+    private RespuestaAccion accionSobreCitaTelegram(InterpretacionChatbot interpretacion, Paciente paciente) {
+        Optional<Cita> proxima = accionesCitaPacienteService.proximaActiva(paciente);
+        return switch (interpretacion.intencion()) {
+            case CHECK_APPOINTMENT -> proxima
+                    .map(c -> new RespuestaAccion("Tu proxima cita es el %s a las %s, estado: %s."
+                            .formatted(c.getFecha(), c.getHora(), etiqueta(c.getEstado())), EXITO))
+                    .orElseGet(() -> new RespuestaAccion("No tienes citas proximas programadas.", EXITO));
+            case CONFIRM_APPOINTMENT -> proxima
+                    .map(c -> {
+                        if (c.getEstado() != EstadoCita.CONFIRMADA) {
+                            accionesCitaPacienteService.confirmar(c, paciente);
+                        }
+                        return new RespuestaAccion("Listo, tu cita del %s a las %s esta confirmada."
+                                .formatted(c.getFecha(), c.getHora()), EXITO);
+                    })
+                    .orElseGet(() -> new RespuestaAccion("No tienes ninguna cita pendiente de confirmar.", EXITO));
+            case CANCEL_APPOINTMENT -> {
+                if (proxima.isEmpty()) {
+                    yield new RespuestaAccion("No tienes ninguna cita proxima para cancelar.", EXITO);
+                }
+                Cita cita = proxima.get();
+                String motivo = interpretacion.entidad("motivo");
+                if (!interpretacion.listoParaEjecutar() || motivo == null) {
+                    yield new RespuestaAccion("Antes de cancelar tu cita del %s a las %s, cuentame brevemente el motivo."
+                            .formatted(cita.getFecha(), cita.getHora()), REQUIERE_DATOS);
+                }
+                accionesCitaPacienteService.cancelar(cita, paciente, motivo);
+                yield new RespuestaAccion("Tu cita del %s a las %s fue cancelada. Gracias por avisarnos."
+                        .formatted(cita.getFecha(), cita.getHora()), EXITO);
+            }
+            default -> new RespuestaAccion("Le pedi a recepcion que te contacte para coordinar la fecha y el horario. "
+                    + "Tambien puedes hacerlo en " + frontendProperties.baseUrl() + "/mis-citas", ESCALAR);
         };
     }
 

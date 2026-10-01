@@ -1,9 +1,8 @@
 package com.threepartners.oncologia.infrastructure.out.persistence.jpa;
 
 import com.threepartners.oncologia.domain.cita.EstadoCita;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,7 +11,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
-public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long> {
+public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long>,
+        JpaSpecificationExecutor<CitaJpaEntity> {
 
     @Query("""
             SELECT COUNT(c) > 0 FROM CitaJpaEntity c
@@ -24,17 +24,6 @@ public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long> {
     boolean existeSolapamiento(@Param("medicoId") Long medicoId, @Param("fecha") LocalDate fecha,
                                 @Param("hora") LocalTime hora, @Param("idExcluido") Long idExcluido);
 
-    @Query("""
-            SELECT c FROM CitaJpaEntity c
-            WHERE (:pacienteId IS NULL OR c.pacienteId = :pacienteId)
-              AND (:medicoId IS NULL OR c.medicoId = :medicoId)
-              AND (:desde IS NULL OR c.fecha >= :desde)
-              AND (:hasta IS NULL OR c.fecha <= :hasta)
-              AND (:estado IS NULL OR c.estado = :estado)
-            """)
-    Page<CitaJpaEntity> filtrar(@Param("pacienteId") Long pacienteId, @Param("medicoId") Long medicoId,
-                                 @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta,
-                                 @Param("estado") EstadoCita estado, Pageable pageable);
 
     @Query(value = """
             SELECT * FROM cita c
@@ -44,7 +33,7 @@ public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long> {
     List<CitaJpaEntity> listarProximasEnVentana(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
 
     @Query("""
-            SELECT c, p.nombres, p.apellidos, p.documentoIdentidad, p.telefono, u.nombres
+            SELECT c, p.nombres, p.apellidos, p.documentoIdentidad, p.telefono, u.nombres, p.telegramChatId
             FROM CitaJpaEntity c
             JOIN PacienteJpaEntity p ON p.id = c.pacienteId
             LEFT JOIN UsuarioJpaEntity u ON u.id = c.medicoId
@@ -55,7 +44,7 @@ public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Long> {
     List<Object[]> agendaDelDia(@Param("fecha") LocalDate fecha);
 
     @Query("""
-            SELECT c, p.nombres, p.apellidos, p.documentoIdentidad, p.telefono, u.nombres
+            SELECT c, p.nombres, p.apellidos, p.documentoIdentidad, p.telefono, u.nombres, p.telegramChatId
             FROM CitaJpaEntity c
             JOIN PacienteJpaEntity p ON p.id = c.pacienteId
             LEFT JOIN UsuarioJpaEntity u ON u.id = c.medicoId

@@ -20,8 +20,14 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
     private final PacienteJpaRepository jpaRepository;
 
     @Override
+    /**
+     * saveAndFlush: telegram_chat_id es UNIQUE y al mover un chat de un
+     * paciente a otro la liberacion del primero debe llegar a la base antes
+     * que la asignacion al segundo (Hibernate no garantiza ese orden al final
+     * de la transaccion).
+     */
     public Paciente guardar(Paciente paciente) {
-        return aDominio(jpaRepository.save(aEntidad(paciente)));
+        return aDominio(jpaRepository.saveAndFlush(aEntidad(paciente)));
     }
 
     @Override
@@ -52,6 +58,11 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
     @Override
     public boolean existePorEmailYNoId(String email, Long idExcluido) {
         return email != null && jpaRepository.existsByEmailAndIdNot(email, idExcluido);
+    }
+
+    @Override
+    public Optional<Paciente> buscarPorTelegramChatId(Long chatId) {
+        return jpaRepository.findByTelegramChatId(chatId).map(PacienteRepositoryAdapter::aDominio);
     }
 
     @Override
@@ -94,6 +105,9 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .contactoEmergenciaTelefono(paciente.getContactoEmergenciaTelefono())
                 .activo(paciente.isActivo())
                 .fechaRegistro(paciente.getFechaRegistro())
+                .telegramChatId(paciente.getTelegramChatId())
+                .telegramVinculadoEn(paciente.getTelegramVinculadoEn())
+                .aceptaRecordatorios(paciente.aceptaRecordatorios())
                 .build();
     }
 
@@ -117,6 +131,9 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .contactoEmergenciaTelefono(entidad.getContactoEmergenciaTelefono())
                 .activo(entidad.isActivo())
                 .fechaRegistro(entidad.getFechaRegistro())
+                .telegramChatId(entidad.getTelegramChatId())
+                .telegramVinculadoEn(entidad.getTelegramVinculadoEn())
+                .aceptaRecordatorios(entidad.isAceptaRecordatorios())
                 .build();
     }
 

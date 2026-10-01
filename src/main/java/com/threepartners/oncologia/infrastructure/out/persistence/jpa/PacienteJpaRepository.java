@@ -23,6 +23,8 @@ public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, 
 
     Optional<PacienteJpaEntity> findByUsuarioId(Long usuarioId);
 
+    Optional<PacienteJpaEntity> findByTelegramChatId(Long telegramChatId);
+
     long countByFechaRegistroBetween(Instant desde, Instant hasta);
 
     @Query("""

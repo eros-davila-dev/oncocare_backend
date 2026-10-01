@@ -37,7 +37,9 @@ public class CicloTratamientoRepositoryAdapter implements CicloTratamientoReposi
     @Override
     public Pagina<CicloTratamiento> listar(Long pacienteId, TipoTratamiento tipo, CriterioPaginacion criterio) {
         var pageable = PaginacionMapper.aPageable(criterio, "fechaSesion");
-        return PaginacionMapper.aPagina(jpaRepository.filtrar(pacienteId, tipo, pageable), CicloTratamientoRepositoryAdapter::aDominio);
+        return PaginacionMapper.aPagina(jpaRepository.findAll(FiltrosJpa.todas(
+                FiltrosJpa.igual("pacienteId", pacienteId),
+                FiltrosJpa.igual("tipoTratamiento", tipo)), pageable), CicloTratamientoRepositoryAdapter::aDominio);
     }
 
     private static CicloTratamientoJpaEntity aEntidad(CicloTratamiento ciclo) {

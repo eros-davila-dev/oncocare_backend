@@ -97,6 +97,20 @@ public class GestorConsultasChatbot {
         return guardada;
     }
 
+    /**
+     * Una solicitud que el canal no puede resolver por si mismo (p. ej.
+     * "Reprogramar" desde el boton de un recordatorio): queda escalada al
+     * personal y cuenta en el NCA segun lo que el personal resuelva.
+     */
+    public Consulta escalarSolicitud(String sesionId, CanalConsulta canal, Long pacienteId, Intencion intencion, String resumen) {
+        Instant ahora = clock.instant();
+        Consulta consulta = Consulta.abrir(canal, sesionId, pacienteId, intencion.name(), resumen(resumen), ahora, ahora);
+        consulta.escalar(ahora);
+        Consulta guardada = consultaRepositoryPort.guardar(consulta);
+        avisarAlPersonal(guardada);
+        return guardada;
+    }
+
     private boolean continuaLaNecesidad(Consulta ultima, Intencion intencion) {
         if (!ultima.enManosDelBot()) {
             return false;

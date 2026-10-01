@@ -83,4 +83,13 @@ public class PacienteJpaEntity {
     @Column(name = "fecha_registro", nullable = false)
     private Instant fechaRegistro;
 
+    @Column(name = "telegram_chat_id", unique = true)
+    private Long telegramChatId;
+
+    @Column(name = "telegram_vinculado_en")
+    private Instant telegramVinculadoEn;
+
+    @Column(name = "acepta_recordatorios", nullable = false)
+    private boolean aceptaRecordatorios;
+
 }

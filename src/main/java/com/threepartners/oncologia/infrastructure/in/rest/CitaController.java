@@ -115,7 +115,7 @@ public class CitaController {
 
     private CitaAgendaResponseDto aAgendaResponse(CitaAgenda c) {
         return new CitaAgendaResponseDto(mapper.aResponse(c.cita()), c.pacienteNombre(), c.pacienteDocumento(),
-                c.pacienteTelefono(), c.medicoNombre());
+                c.pacienteTelefono(), c.medicoNombre(), c.pacienteConTelegram());
     }
 
     /**

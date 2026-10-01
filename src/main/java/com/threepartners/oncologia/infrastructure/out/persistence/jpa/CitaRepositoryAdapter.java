@@ -42,7 +42,12 @@ public class CitaRepositoryAdapter implements CitaRepositoryPort {
     public Pagina<Cita> listar(Long pacienteId, Long medicoId, LocalDate desde, LocalDate hasta, EstadoCita estado, CriterioPaginacion criterio) {
         var pageable = PaginacionMapper.aPageable(criterio, "fecha");
         return PaginacionMapper.aPagina(
-                jpaRepository.filtrar(pacienteId, medicoId, desde, hasta, estado, pageable),
+                jpaRepository.findAll(FiltrosJpa.todas(
+                        FiltrosJpa.igual("pacienteId", pacienteId),
+                        FiltrosJpa.igual("medicoId", medicoId),
+                        FiltrosJpa.desde("fecha", desde),
+                        FiltrosJpa.hasta("fecha", hasta),
+                        FiltrosJpa.igual("estado", estado)), pageable),
                 CitaRepositoryAdapter::aDominio);
     }
 
@@ -79,7 +84,7 @@ public class CitaRepositoryAdapter implements CitaRepositoryPort {
 
     private static CitaAgenda aAgenda(Object[] fila) {
         return new CitaAgenda(aDominio((CitaJpaEntity) fila[0]),
-                "%s %s".formatted(fila[1], fila[2]), (String) fila[3], (String) fila[4], (String) fila[5]);
+                "%s %s".formatted(fila[1], fila[2]), (String) fila[3], (String) fila[4], (String) fila[5], fila[6] != null);
     }
 
     private static CitaJpaEntity aEntidad(Cita cita) {

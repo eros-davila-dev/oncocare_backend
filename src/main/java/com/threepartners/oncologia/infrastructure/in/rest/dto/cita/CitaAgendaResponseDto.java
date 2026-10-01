@@ -5,6 +5,7 @@ public record CitaAgendaResponseDto(
         String pacienteNombre,
         String pacienteDocumento,
         String pacienteTelefono,
-        String medicoNombre
+        String medicoNombre,
+        boolean pacienteConTelegram
 ) {
 }
