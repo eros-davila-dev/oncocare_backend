@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: oncologia
+  http:
+    client:
+      # Ninguna llamada saliente (n8n, Gemini) puede colgar una peticion ni
+      # una transaccion indefinidamente si el servicio externo no responde;
+      # aplica a todos los RestClient.Builder autoconfigurados (Spring Boot
+      # 3.4+, seccion 15: "nunca fallar en silencio", pero tampoco colgarse).
+      connect-timeout: 5s
+      read-timeout: 20s
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/oncologia}
+    username: ${DB_USUARIO:oncologia}
+    password: ${DB_PASSWORD:oncologia}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:2}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
+    access-token-minutos: ${JWT_ACCESS_MINUTOS:15}
+    refresh-token-dias: ${JWT_REFRESH_DIAS:7}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:4200}
+  registro:
+    # En false por defecto: activar solo cuando el envio real de correo
+    # (SMTP/n8n) este configurado, para no dejar cuentas huerfanas sin forma
+    # de verificarse (seccion 7).
+    pacientes-habilitado: ${REGISTRO_PACIENTES_HABILITADO:false}
+  webhook:
+    n8n-secret: ${N8N_WEBHOOK_SECRET:cambia-este-secreto-de-webhook}
+  n8n:
+    base-url: ${N8N_BASE_URL:http://localhost:5678}
+    webhook-secret: ${N8N_WEBHOOK_SECRET:cambia-este-secreto-de-webhook}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.6-flash}
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+  device:
+    mqtt:
+      enabled: ${MQTT_ENABLED:false}
+      broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+      client-id: ${MQTT_CLIENT_ID:oncologia-backend}
+      topic: ${MQTT_TOPIC:oncologia/dispositivos/+/lecturas}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.threepartners.oncologia: ${LOG_LEVEL:INFO}
