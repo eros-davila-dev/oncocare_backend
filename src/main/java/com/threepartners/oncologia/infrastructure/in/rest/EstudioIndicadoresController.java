@@ -5,6 +5,7 @@ import com.threepartners.oncologia.domain.estudio.AlcanceIndicador;
 import com.threepartners.oncologia.domain.estudio.CanalMedicion;
 import com.threepartners.oncologia.domain.estudio.Fase;
 import com.threepartners.oncologia.domain.estudio.TipoMedicion;
+import com.threepartners.oncologia.infrastructure.in.rest.dto.estudio.AnalisisPareadoResponseDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.estudio.ComparativoIndicadoresResponseDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.estudio.FilaPareadaResponseDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.estudio.ResultadoIndicadoresResponseDto;
@@ -62,5 +63,14 @@ public class EstudioIndicadoresController {
         return consultarIndicadoresUseCase.pareado(tipoRegistro, canales).stream()
                 .map(FilaPareadaResponseDto::de)
                 .toList();
+    }
+
+    @Operation(summary = "Prueba de Wilcoxon preliminar por indicador (convenciones de SPSS)",
+            description = "Vista previa sobre la tabla pareada; el analisis oficial se hace en SPSS con la exportacion.")
+    @GetMapping("/wilcoxon")
+    public AnalisisPareadoResponseDto wilcoxon(
+            @RequestParam(required = false) TipoMedicion tipoRegistro,
+            @RequestParam(required = false) Set<CanalMedicion> canales) {
+        return AnalisisPareadoResponseDto.de(consultarIndicadoresUseCase.analisis(tipoRegistro, canales));
     }
 }

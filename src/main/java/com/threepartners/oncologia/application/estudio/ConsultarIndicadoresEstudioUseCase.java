@@ -1,6 +1,7 @@
 package com.threepartners.oncologia.application.estudio;
 
 import com.threepartners.oncologia.domain.estudio.AlcanceIndicador;
+import com.threepartners.oncologia.domain.estudio.AnalisisPareado;
 import com.threepartners.oncologia.domain.estudio.CanalMedicion;
 import com.threepartners.oncologia.domain.estudio.ComparativoIndicadores;
 import com.threepartners.oncologia.domain.estudio.ConteosIndicadores;
@@ -67,6 +68,10 @@ public class ConsultarIndicadoresEstudioUseCase {
     @PreAuthorize("hasAnyRole('ADMIN', 'INVESTIGADOR')")
     @Transactional(readOnly = true)
     public List<FilaPareada> pareado(TipoMedicion tipoRegistro, Set<CanalMedicion> canales) {
+        return filasPareadas(tipoRegistro, canales);
+    }
+
+    private List<FilaPareada> filasPareadas(TipoMedicion tipoRegistro, Set<CanalMedicion> canales) {
         var filtroPre = new FiltroIndicadores(periodosEstudioService.periodoDe(Fase.PRETEST),
                 AlcanceIndicador.MUESTRA, tipoRegistro, canales);
         var filtroPost = new FiltroIndicadores(periodosEstudioService.periodoDe(Fase.POSTEST),
@@ -81,6 +86,18 @@ public class ConsultarIndicadoresEstudioUseCase {
                         IndicadoresEstudio.de(pre.getOrDefault(p.getCodigo(), ConteosIndicadores.vacios())),
                         IndicadoresEstudio.de(post.getOrDefault(p.getCodigo(), ConteosIndicadores.vacios()))))
                 .toList();
+    }
+
+    /**
+     * Vista preliminar de la prueba de Wilcoxon por indicador sobre la tabla
+     * pareada. El analisis oficial de la tesis se hace en SPSS con la
+     * exportacion; esto sirve para anticipar si los datos van en el sentido
+     * de las hipotesis mientras corre el postest.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVESTIGADOR')")
+    @Transactional(readOnly = true)
+    public AnalisisPareado analisis(TipoMedicion tipoRegistro, Set<CanalMedicion> canales) {
+        return AnalisisPareado.de(filasPareadas(tipoRegistro, canales));
     }
 
     public record ResultadoIndicadores(Fase fase, FiltroIndicadores filtro, IndicadoresEstudio indicadores) {

@@ -35,7 +35,9 @@ public class AuditoriaController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
-        var pagina = consultarAuditoriaUseCase.ejecutar(usuarioId, entidadAfectada, desde, hasta, CriterioPaginacion.de(page, size));
+        // Lo mas reciente primero: es lo que se busca al revisar una bitacora.
+        var criterio = new CriterioPaginacion(page, size, "fecha", false);
+        var pagina = consultarAuditoriaUseCase.ejecutar(usuarioId, entidadAfectada, desde, hasta, criterio);
         return PaginaResponseDto.de(pagina, mapper::aResponse);
     }
 }

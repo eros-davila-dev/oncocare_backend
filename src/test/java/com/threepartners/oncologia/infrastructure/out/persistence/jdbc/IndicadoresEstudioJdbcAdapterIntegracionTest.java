@@ -6,6 +6,8 @@ import com.threepartners.oncologia.domain.estudio.ConteosIndicadores;
 import com.threepartners.oncologia.domain.estudio.FiltroIndicadores;
 import com.threepartners.oncologia.domain.estudio.IndicadoresEstudio;
 import com.threepartners.oncologia.domain.estudio.PeriodoMedicion;
+import com.threepartners.oncologia.domain.estudio.RegistrosFichas;
+import com.threepartners.oncologia.domain.estudio.ResultadoConsulta;
 import com.threepartners.oncologia.domain.estudio.TipoMedicion;
 import com.threepartners.oncologia.soporte.PostgresIntegracionTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.EnumSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,6 +140,44 @@ class IndicadoresEstudioJdbcAdapterIntegracionTest extends PostgresIntegracionTe
         assertThat(p01.registros()).isEqualTo(3);
         assertThat(p01.inasistencias()).isEqualTo(1);
         assertThat(p01.consultasResueltas()).isEqualTo(2);
+    }
+
+    @Test
+    void lasFilasExportadasSumanExactamenteLoQueMuestraElIndicador() {
+        for (AlcanceIndicador alcance : AlcanceIndicador.values()) {
+            var filtro = FiltroIndicadores.deHipotesis(SEPTIEMBRE, alcance);
+            ConteosIndicadores conteos = adapter.contar(filtro);
+
+            var tiempos = adapter.tiempos(filtro);
+            assertThat(tiempos).hasSize((int) conteos.registros());
+            assertThat(tiempos.stream().mapToLong(RegistrosFichas.Tiempo::segundos).sum())
+                    .isEqualTo(conteos.sumaSegundosRegistro());
+
+            var asistencias = adapter.asistencias(filtro);
+            assertThat(asistencias.stream().filter(a -> !a.asistio()).count()).isEqualTo(conteos.inasistencias());
+            assertThat(asistencias.stream().filter(RegistrosFichas.Asistencia::asistio).count())
+                    .isEqualTo(conteos.citasCumplidas());
+
+            var consultas = adapter.consultas(filtro);
+            assertThat(consultas).hasSize((int) conteos.consultasCerradas());
+            assertThat(consultas.stream().filter(k -> k.resultado() != ResultadoConsulta.NO_RESUELTA).count())
+                    .isEqualTo(conteos.consultasResueltas());
+        }
+    }
+
+    @Test
+    void lasFilasLlevanSoloElCodigoYLaHoraDeLima() {
+        var muestra = FiltroIndicadores.deHipotesis(SEPTIEMBRE, AlcanceIndicador.MUESTRA);
+        var global = FiltroIndicadores.deHipotesis(SEPTIEMBRE, AlcanceIndicador.GLOBAL);
+
+        assertThat(adapter.tiempos(muestra)).extracting(RegistrosFichas.Tiempo::codigo).containsOnly("P01");
+        // 2026-10-01T04:30Z es 30/09 23:30 en Lima
+        assertThat(adapter.tiempos(muestra).getLast().fecha()).isEqualTo(LocalDate.of(2026, 9, 30));
+        assertThat(adapter.tiempos(muestra).getLast().horaInicio()).isEqualTo(LocalTime.of(23, 30));
+        // Fuera de la muestra (P02 excluido, C no participante, visitante) el codigo va vacio
+        assertThat(adapter.tiempos(global)).extracting(RegistrosFichas.Tiempo::codigo)
+                .containsExactlyInAnyOrder("P01", "P01", "P01", null, null);
+        assertThat(adapter.consultas(global)).extracting(RegistrosFichas.ConsultaCerrada::codigo).contains((String) null);
     }
 
     @Test
