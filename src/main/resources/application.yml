@@ -29,6 +29,22 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  # SMTP: solo se usa si MAIL_FLAG_SMTP=true (respaldo de la API de correo).
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_STARTTLS:true}
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
   # Redis solo se usa si app.rate-limit.almacen=redis (produccion); la
   # conexion es perezosa, asi que en desarrollo no hace falta levantarlo.
   data:
@@ -44,6 +60,18 @@ server:
   port: ${SERVER_PORT:8080}
 
 app:
+  correo:
+    # Remitente de los correos del sistema.
+    remitente: ${MAIL_FROM_EMAIL:${MAIL_USERNAME:}}
+    nombre-remitente: ${MAIL_FROM_NAME:Fundacion Oncologica Three Partners}
+    # Proveedor principal: API HTTP de correo (servicemail / Quipu).
+    api:
+      habilitado: ${MAIL_FLAG_QUIPU:false}
+      url: ${MAIL_API_URL:}
+      clave: ${MAIL_API_KEY:}
+    # Respaldo: SMTP (spring.mail.*). Si ambos estan activos se intenta la API y luego SMTP.
+    smtp:
+      habilitado: ${MAIL_FLAG_SMTP:false}
   rate-limit:
     # memoria (una instancia, desarrollo) o redis (produccion / varias instancias).
     almacen: ${RATE_LIMIT_ALMACEN:memoria}
@@ -81,6 +109,8 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:4300}
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:4200}
+    # Intranet del personal: destino de los enlaces de correo de cuentas que no son de paciente.
+    intranet-url: ${FRONTEND_INTRANET_URL:http://localhost:4300}
   registro:
     # En false por defecto: activar solo cuando el envio real de correo
     # (SMTP/n8n) este configurado, para no dejar cuentas huerfanas sin forma
@@ -110,6 +140,9 @@ springdoc:
 
 management:
   health:
+    # El chequeo de salud de correo abre una conexion SMTP en cada consulta: no aporta y puede marcar caido al backend.
+    mail:
+      enabled: false
     redis:
       # Con el almacen en memoria, un Redis apagado no debe marcar el backend como caido.
       enabled: ${REDIS_HEALTH_HABILITADO:false}

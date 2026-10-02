@@ -8,7 +8,8 @@ import com.threepartners.oncologia.domain.usuario.PasswordEncoderPort;
 import com.threepartners.oncologia.domain.usuario.TokenAccionCuentaRepositoryPort;
 import com.threepartners.oncologia.domain.usuario.Usuario;
 import com.threepartners.oncologia.domain.usuario.UsuarioRepositoryPort;
-import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
+import com.threepartners.oncologia.domain.notificacion.NotificadorCorreoPort;
+import com.threepartners.oncologia.domain.notificacion.TipoCorreo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -35,7 +36,7 @@ class RegistrarCuentaPacienteUseCaseTest {
     @Mock
     private GeneradorTokenPort generadorTokenPort;
     @Mock
-    private NotificadorExternoPort notificadorExternoPort;
+    private NotificadorCorreoPort notificadorCorreoPort;
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
@@ -44,7 +45,7 @@ class RegistrarCuentaPacienteUseCaseTest {
     private RegistrarCuentaPacienteUseCase useCase(boolean pacientesHabilitado) {
         return new RegistrarCuentaPacienteUseCase(
                 usuarioRepositoryPort, passwordEncoderPort, tokenAccionCuentaRepositoryPort, generadorTokenPort,
-                notificadorExternoPort, frontendProperties, new RegistroProperties(pacientesHabilitado), eventPublisher);
+                notificadorCorreoPort, frontendProperties, new RegistroProperties(pacientesHabilitado), eventPublisher);
     }
 
     @Test
@@ -54,7 +55,7 @@ class RegistrarCuentaPacienteUseCaseTest {
         assertThatThrownBy(() -> useCase.ejecutar("Ana", "ana@example.com", "Clave1234", "127.0.0.1"))
                 .isInstanceOf(RegistroNoDisponibleException.class);
 
-        verifyNoInteractions(usuarioRepositoryPort, tokenAccionCuentaRepositoryPort, notificadorExternoPort, eventPublisher);
+        verifyNoInteractions(usuarioRepositoryPort, tokenAccionCuentaRepositoryPort, notificadorCorreoPort, eventPublisher);
     }
 
     @Test
@@ -74,7 +75,8 @@ class RegistrarCuentaPacienteUseCaseTest {
 
         verify(usuarioRepositoryPort).guardar(any(Usuario.class));
         verify(tokenAccionCuentaRepositoryPort).guardar(any());
-        verify(notificadorExternoPort).dispararWorkflow(anyString(), any());
+        verify(notificadorCorreoPort).enviar(TipoCorreo.VERIFICACION_EMAIL, "ana@example.com", "Ana",
+                "http://localhost:4200/auth/verificar-email?token=token-plano");
         verify(eventPublisher).publishEvent(any(Object.class));
     }
 
@@ -86,6 +88,6 @@ class RegistrarCuentaPacienteUseCaseTest {
         useCase.ejecutar("Ana", "ana@example.com", "Clave1234", "127.0.0.1");
 
         verify(usuarioRepositoryPort, never()).guardar(any(Usuario.class));
-        verifyNoInteractions(notificadorExternoPort, eventPublisher);
+        verifyNoInteractions(notificadorCorreoPort, eventPublisher);
     }
 }

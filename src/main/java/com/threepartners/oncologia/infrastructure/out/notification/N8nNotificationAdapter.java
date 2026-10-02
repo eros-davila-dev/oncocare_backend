@@ -1,6 +1,5 @@
 package com.threepartners.oncologia.infrastructure.out.notification;
 
-import com.threepartners.oncologia.domain.notificacion.EntregaExternaPort;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -9,7 +8,7 @@ import java.util.Map;
 
 /**
  * Cliente HTTP saliente hacia los webhooks de n8n, usado solo por el relevo
- * del outbox (EntregarEventosSalientesUseCase): los casos de uso nunca lo
+ * del outbox a traves de EntregaExternaEnrutador: los casos de uso nunca lo
  * llaman directamente.
  *
  * Usa su propio RestClient con timeouts cortos (no el RestClient.Builder
@@ -18,7 +17,7 @@ import java.util.Map;
  * la registra y reintenta mas tarde.
  */
 @Component
-public class N8nNotificationAdapter implements EntregaExternaPort {
+public class N8nNotificationAdapter {
 
     private static final int TIMEOUT_CONEXION_MILIS = 3_000;
     private static final int TIMEOUT_LECTURA_MILIS = 5_000;
@@ -34,7 +33,6 @@ public class N8nNotificationAdapter implements EntregaExternaPort {
         this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
-    @Override
     public void entregar(String destino, Map<String, Object> payload) {
         restClient.post()
                 .uri(n8nProperties.baseUrl() + destino)

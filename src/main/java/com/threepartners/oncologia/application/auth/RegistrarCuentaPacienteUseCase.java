@@ -14,7 +14,8 @@ import com.threepartners.oncologia.domain.usuario.TokenAccionCuenta;
 import com.threepartners.oncologia.domain.usuario.TokenAccionCuentaRepositoryPort;
 import com.threepartners.oncologia.domain.usuario.Usuario;
 import com.threepartners.oncologia.domain.usuario.UsuarioRepositoryPort;
-import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
+import com.threepartners.oncologia.domain.notificacion.NotificadorCorreoPort;
+import com.threepartners.oncologia.domain.notificacion.TipoCorreo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -22,12 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 
 /**
  * Paso 1 del flujo de autoservicio (seccion 7): crea la CUENTA en estado
- * PENDIENTE_VERIFICACION y dispara el envio del correo de verificacion via
- * n8n. La creacion del registro clinico (Paciente) ocurre despues, en
+ * PENDIENTE_VERIFICACION y encola el correo de verificacion (NotificadorCorreoPort,
+ * entregado con reintentos por el outbox). La creacion del registro clinico (Paciente) ocurre despues, en
  * CompletarPerfilPacienteUseCase, una vez verificado el correo.
  */
 @Service
@@ -40,7 +40,7 @@ public class RegistrarCuentaPacienteUseCase {
     private final PasswordEncoderPort passwordEncoderPort;
     private final TokenAccionCuentaRepositoryPort tokenAccionCuentaRepositoryPort;
     private final GeneradorTokenPort generadorTokenPort;
-    private final NotificadorExternoPort notificadorExternoPort;
+    private final NotificadorCorreoPort notificadorCorreoPort;
     private final FrontendProperties frontendProperties;
     private final RegistroProperties registroProperties;
     private final ApplicationEventPublisher eventPublisher;
@@ -88,9 +88,7 @@ public class RegistrarCuentaPacienteUseCase {
                 .creadoEn(Instant.now())
                 .build());
 
-        notificadorExternoPort.dispararWorkflow("/webhook/notificaciones/verificacion-email", Map.of(
-                "email", cuenta.getEmail(),
-                "nombre", cuenta.getNombres(),
-                "urlVerificacion", frontendProperties.baseUrl() + "/auth/verificar-email?token=" + tokenPlano));
+        notificadorCorreoPort.enviar(TipoCorreo.VERIFICACION_EMAIL, cuenta.getEmail(), cuenta.getNombres(),
+                frontendProperties.baseUrl() + "/auth/verificar-email?token=" + tokenPlano);
     }
 }
