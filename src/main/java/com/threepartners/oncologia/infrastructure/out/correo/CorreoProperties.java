@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * (API), MAIL_FLAG_SMTP, MAIL_API_URL, MAIL_API_KEY, MAIL_USERNAME...
  */
 @ConfigurationProperties(prefix = "app.correo")
-public record CorreoProperties(String remitente, String nombreRemitente, Api api, Smtp smtp) {
+public record CorreoProperties(String remitente, String nombreRemitente, String logoUrl, Api api, Smtp smtp) {
 
     public CorreoProperties {
         api = api != null ? api : new Api(false, null, null);

@@ -95,12 +95,13 @@ class CorreoTest {
                 "Ana <b>Maria</b> Perez", "https://portal.pe/auth/restablecer-password?token=abc&x=1");
 
         assertThat(m.asunto()).isEqualTo("Restablece tu contraseña");
-        assertThat(m.html()).contains("Hola Ana,").doesNotContain("Perez").doesNotContain("<b>Maria");
+        assertThat(m.html()).contains("Hola, Ana:").doesNotContain("Perez").doesNotContain("<b>Maria");
         assertThat(m.html()).contains("href=\"https://portal.pe/auth/restablecer-password?token=abc&amp;x=1\"");
         assertThat(PlantillasCorreo.renderizar(TipoCorreo.VERIFICACION_EMAIL, "a@b.pe", "<script>", "https://x").html())
                 .doesNotContain("<script>");
         for (TipoCorreo tipo : TipoCorreo.values()) {
-            assertThat(PlantillasCorreo.renderizar(tipo, "a@b.pe", null, "https://x").html()).contains("Hola,");
+            String html = PlantillasCorreo.renderizar(tipo, "a@b.pe", null, "https://x").html();
+            assertThat(html).contains("Hola:").doesNotContain("{{").contains("OncoCare");
         }
     }
 
@@ -119,13 +120,14 @@ class CorreoTest {
                 enviados.add(mensaje);
             }
         };
-        var enrutador = new EntregaExternaEnrutador(n8n, new ServicioCorreo(List.of(capturador), "a@b.pe", "F"));
+        var propiedades = new CorreoProperties("a@b.pe", "F", "https://portal.pe/logo-correo.png", null, null);
+        var enrutador = new EntregaExternaEnrutador(n8n, new ServicioCorreo(List.of(capturador), "a@b.pe", "F"), propiedades);
 
         enrutador.entregar("correo:BIENVENIDA_USUARIO",
                 Map.of("email", "medico@fundacion.pe", "nombre", "Luis", "enlace", "https://intranet/x"));
         assertThat(enviados).singleElement().satisfies(m -> {
             assertThat(m.destinatario()).isEqualTo("medico@fundacion.pe");
-            assertThat(m.html()).contains("https://intranet/x");
+            assertThat(m.html()).contains("https://intranet/x").contains("src=\"https://portal.pe/logo-correo.png\"");
         });
         verifyNoInteractions(n8n);
 
