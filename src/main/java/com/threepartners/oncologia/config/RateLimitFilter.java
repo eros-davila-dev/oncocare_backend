@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.config;
 
+import com.threepartners.oncologia.config.ratelimit.ContadorSolicitudes;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,15 +10,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.time.Duration;
 
 /**
  * Rate limiting basico por IP sobre el login y el webhook del chatbot (seccion
- * 12, punto 6), para mitigar fuerza bruta y abuso conversacional. Implementacion
- * en memoria de ventana fija; para despliegues multi-instancia se recomienda
- * moverla a Redis, pero para el alcance de este sistema resuelve el riesgo real.
+ * 12, punto 6), para mitigar fuerza bruta y abuso conversacional. Ventana fija
+ * de un minuto; el conteo vive en memoria o en Redis segun
+ * app.rate-limit.almacen (ver RateLimitConfig), asi el limite se respeta
+ * aunque haya varias instancias del backend.
  */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
@@ -25,9 +25,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final int LIMITE_LOGIN = 10;
     private static final int LIMITE_CHATBOT = 60;
     private static final int LIMITE_CHATBOT_MENSAJE = 20;
-    private static final long VENTANA_MILIS = 60_000;
+    private static final Duration VENTANA = Duration.ofMinutes(1);
 
-    private final ConcurrentHashMap<String, Ventana> contadores = new ConcurrentHashMap<>();
+    private final ContadorSolicitudes contadorSolicitudes;
+
+    public RateLimitFilter(ContadorSolicitudes contadorSolicitudes) {
+        this.contadorSolicitudes = contadorSolicitudes;
+    }
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -46,8 +50,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             limite = LIMITE_CHATBOT_MENSAJE;
         }
 
-        if (limite != null && excedeLimite(claveDe(request, path), limite)) {
+        if (limite != null && contadorSolicitudes.incrementar(claveDe(request, path), VENTANA) > limite) {
             response.setStatus(429);
+            response.setHeader("Retry-After", String.valueOf(VENTANA.toSeconds()));
             response.setContentType("application/json");
             response.getWriter().write("""
                     {"status":429,"code":"DEMASIADAS_SOLICITUDES","message":"Ha excedido el limite de solicitudes, intente nuevamente en un minuto"}""");
@@ -59,19 +64,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private String claveDe(HttpServletRequest request, String path) {
         return path + "|" + request.getRemoteAddr();
-    }
-
-    private boolean excedeLimite(String clave, int limite) {
-        long ahora = Instant.now().toEpochMilli();
-        Ventana ventana = contadores.compute(clave, (k, actual) -> {
-            if (actual == null || ahora - actual.inicioMilis() > VENTANA_MILIS) {
-                return new Ventana(ahora, new AtomicInteger(0));
-            }
-            return actual;
-        });
-        return ventana.contador().incrementAndGet() > limite;
-    }
-
-    private record Ventana(long inicioMilis, AtomicInteger contador) {
     }
 }

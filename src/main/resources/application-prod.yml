@@ -1,0 +1,36 @@
+# Perfil de produccion (SPRING_PROFILES_ACTIVE=prod). Solo lo que cambia
+# respecto de application.yml; los secretos siguen llegando por variables.
+
+# Logs JSON (formato ECS) para que el agregador los indexe; las lineas de log
+# del sistema no llevan datos personales (solo ids y conteos).
+logging:
+  structured:
+    format:
+      console: ecs
+
+# Sin documentacion publica de la API en produccion.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  health:
+    redis:
+      enabled: true
+  server:
+    # Puerto interno: Prometheus lo lee dentro de la red de Docker; no se publica.
+    port: ${MANAGEMENT_PORT:9091}
+
+server:
+  # Detras de Caddy: respetar X-Forwarded-For/Proto (IP real para el rate
+  # limit y la auditoria, https en los enlaces generados).
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+app:
+  seguridad:
+    exigir-cambio-password-semilla: true
+  rate-limit:
+    almacen: ${RATE_LIMIT_ALMACEN:redis}

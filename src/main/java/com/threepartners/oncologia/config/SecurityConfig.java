@@ -39,6 +39,9 @@ public class SecurityConfig {
             // Contrato con n8n: cada endpoint exige X-Webhook-Secret (IntegracionN8nController).
             "/api/v1/integraciones/**",
             "/actuator/health",
+            // Solo conteos sin datos personales. En produccion el actuator escucha en
+            // un puerto interno no publicado y el proxy nunca enruta /actuator.
+            "/actuator/prometheus",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"

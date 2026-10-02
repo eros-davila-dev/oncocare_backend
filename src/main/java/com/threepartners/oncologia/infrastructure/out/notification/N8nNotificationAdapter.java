@@ -1,7 +1,6 @@
 package com.threepartners.oncologia.infrastructure.out.notification;
 
-import com.threepartners.oncologia.domain.notificacion.NotificadorExternoPort;
-import lombok.extern.slf4j.Slf4j;
+import com.threepartners.oncologia.domain.notificacion.EntregaExternaPort;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -9,21 +8,17 @@ import org.springframework.web.client.RestClient;
 import java.util.Map;
 
 /**
- * Cliente HTTP saliente hacia n8n (seccion 6). Los tres flujos de la seccion
- * 15 son iniciados por n8n hacia el backend, pero este adaptador queda
- * disponible para disparar un workflow puntual de forma inmediata (por
- * ejemplo, notificar una cancelacion de cita sin esperar al cron diario) sin
- * que los casos de uso de negocio conozcan como esta implementado n8n.
+ * Cliente HTTP saliente hacia los webhooks de n8n, usado solo por el relevo
+ * del outbox (EntregarEventosSalientesUseCase): los casos de uso nunca lo
+ * llaman directamente.
  *
- * Es deliberadamente "dispara y olvida": usa su propio RestClient con
- * timeouts cortos (no el RestClient.Builder global usado para Gemini, que
- * necesita mas margen para una respuesta de IA) para que un n8n lento, caido
- * o sin el workflow importado todavia nunca retrase la respuesta al usuario
- * ni mantenga abierta una transaccion de base de datos.
+ * Usa su propio RestClient con timeouts cortos (no el RestClient.Builder
+ * global usado para Gemini, que necesita mas margen para una respuesta de
+ * IA). Si n8n no responde o devuelve un error, lanza la excepcion: el outbox
+ * la registra y reintenta mas tarde.
  */
-@Slf4j
 @Component
-public class N8nNotificationAdapter implements NotificadorExternoPort {
+public class N8nNotificationAdapter implements EntregaExternaPort {
 
     private static final int TIMEOUT_CONEXION_MILIS = 3_000;
     private static final int TIMEOUT_LECTURA_MILIS = 5_000;
@@ -40,16 +35,12 @@ public class N8nNotificationAdapter implements NotificadorExternoPort {
     }
 
     @Override
-    public void dispararWorkflow(String rutaWebhook, Map<String, Object> payload) {
-        try {
-            restClient.post()
-                    .uri(n8nProperties.baseUrl() + rutaWebhook)
-                    .header("X-Webhook-Secret", n8nProperties.webhookSecret())
-                    .body(payload)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (Exception e) {
-            log.error("No se pudo notificar al workflow de n8n en {}", rutaWebhook, e);
-        }
+    public void entregar(String destino, Map<String, Object> payload) {
+        restClient.post()
+                .uri(n8nProperties.baseUrl() + destino)
+                .header("X-Webhook-Secret", n8nProperties.webhookSecret())
+                .body(payload)
+                .retrieve()
+                .toBodilessEntity();
     }
 }

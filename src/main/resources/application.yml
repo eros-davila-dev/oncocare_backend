@@ -29,10 +29,30 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  # Redis solo se usa si app.rate-limit.almacen=redis (produccion); la
+  # conexion es perezosa, asi que en desarrollo no hace falta levantarlo.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 500ms
+      repositories:
+        enabled: false
+
 server:
   port: ${SERVER_PORT:8080}
 
 app:
+  rate-limit:
+    # memoria (una instancia, desarrollo) o redis (produccion / varias instancias).
+    almacen: ${RATE_LIMIT_ALMACEN:memoria}
+  seguridad:
+    # Ver ProtegerPasswordSemillaUseCase; el perfil prod exige el cambio.
+    admin-password-inicial: ${ADMIN_PASSWORD_INICIAL:}
+    exigir-cambio-password-semilla: ${EXIGIR_CAMBIO_PASSWORD_SEMILLA:false}
+  outbox:
+    intervalo: ${OUTBOX_INTERVALO:PT5S}
   jobs:
     # Jobs programados con ShedLock (SchedulingConfig). En false no se
     # registra ningun @Scheduled (util en tests de integracion).
@@ -89,13 +109,26 @@ springdoc:
     path: /v3/api-docs
 
 management:
+  health:
+    redis:
+      # Con el almacen en memoria, un Redis apagado no debe marcar el backend como caido.
+      enabled: ${REDIS_HEALTH_HABILITADO:false}
+  # En produccion el actuator escucha en un puerto interno que no se publica
+  # (MANAGEMENT_PORT); el proxy solo enruta /api, nunca /actuator.
+  server:
+    port: ${MANAGEMENT_PORT:${server.port}}
   endpoints:
     web:
       exposure:
-        include: health,metrics
+        include: health,metrics,prometheus
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: oncologia
 
 logging:
   level:
