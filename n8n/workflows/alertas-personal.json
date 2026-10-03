@@ -1,0 +1,132 @@
+{
+  "name": "Oncologia - Alertas al Personal",
+  "id": "2ec298e4-d8d7-503d-b646-85ccc63518b7",
+  "active": false,
+  "nodes": [
+    {
+      "id": "df23494d-1b4d-524c-8b5c-2c3e4712c562",
+      "name": "Al escalarse una consulta",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consultas/escalada",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "0789041f-33ef-5271-a057-bebb88d548f8"
+    },
+    {
+      "id": "c82ed0b3-4eb2-53f1-89c5-64cf45ad82f6",
+      "name": "Secreto valido",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "df0ad8ef-272c-5a43-be6e-02edfc20b078",
+              "leftValue": "={{ $json.headers['x-webhook-secret'] }}",
+              "rightValue": "={{ $env.N8N_WEBHOOK_SECRET }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "eb2b2ad7-e442-5d71-bb69-6a5a80032b98",
+      "name": "Avisar al grupo del personal",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        -60
+      ],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_GRUPO_PERSONAL_CHAT_ID }}",
+        "text": "=🔔 Nueva consulta derivada por el asistente (#{{ $json.body.consultaId }}, {{ $json.body.canal === 'TELEGRAM' ? 'Telegram' : 'chat web' }}). Revísala en la bandeja: {{ $env.PORTAL_BASE_URL }}/consultas",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      },
+      "notes": "Sin datos del paciente: el detalle se lee en la intranet con sesion iniciada (Ley 29733)."
+    },
+    {
+      "id": "78a3386f-ef3e-544c-9e67-b69834f489bf",
+      "name": "Ignorar llamada no autorizada",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        80
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Al escalarse una consulta": {
+      "main": [
+        [
+          {
+            "node": "Secreto valido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Secreto valido": {
+      "main": [
+        [
+          {
+            "node": "Avisar al grupo del personal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar llamada no autorizada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "",
+    "timezone": "America/Lima"
+  },
+  "tags": [
+    {
+      "name": "oncologia"
+    }
+  ]
+}

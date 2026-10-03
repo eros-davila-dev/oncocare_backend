@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Java 21 + PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      # Base dedicada para los tests de integracion (indicadores, triggers,
+      # migraciones). Su nombre contiene "test", requisito de PostgresIntegracionTest.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: oncologia_test
+          POSTGRES_USER: oncologia
+          POSTGRES_PASSWORD: oncologia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oncologia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DB_URL: jdbc:postgresql://localhost:5432/oncologia_test
+      TEST_DB_USUARIO: oncologia
+      TEST_DB_PASSWORD: oncologia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Tests, arquitectura y cobertura
+        run: ./mvnw -B verify
+      - name: Publicar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend
+          path: target/site/jacoco
+          if-no-files-found: ignore
+
+  infraestructura:
+    name: Workflows de n8n y docker compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar que cada workflow exportado es JSON valido
+        run: |
+          for f in n8n/workflows/*.json; do
+            python3 -m json.tool "$f" > /dev/null || { echo "JSON invalido: $f"; exit 1; }
+          done
+      - name: Validar el docker compose de desarrollo
+        working-directory: docker
+        run: cp .env.example .env && docker compose config --quiet

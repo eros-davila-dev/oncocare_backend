@@ -1,0 +1,40 @@
+# Alertas pensadas para el piloto: cada una protege un indicador de la tesis
+# o la mensajeria que lo sostiene. Se ven en Prometheus > Alerts; para que
+# lleguen por Telegram o correo hace falta agregar Alertmanager.
+groups:
+  - name: oncologia
+    rules:
+      - alert: BackendCaido
+        expr: up{job="oncologia-backend"} == 0
+        for: 2m
+        annotations:
+          resumen: "El backend no responde a Prometheus"
+
+      - alert: AvisosAN8nFallidos
+        expr: oncologia_outbox_eventos{estado="FALLIDO"} > 0
+        for: 5m
+        annotations:
+          resumen: "Hay avisos a n8n descartados tras 6 intentos (alertas al personal o correos perdidos). Revisar n8n."
+
+      - alert: AvisosAN8nAcumulados
+        expr: oncologia_outbox_eventos{estado="PENDIENTE"} > 20
+        for: 15m
+        annotations:
+          resumen: "La cola de avisos a n8n crece: n8n caido o lento."
+
+      - alert: ConsultasEscaladasSinAtender
+        expr: oncologia_consultas_escaladas_pendientes > 10
+        for: 2h
+        annotations:
+          resumen: "Consultas derivadas al personal esperan respuesta (afecta NCA)."
+
+      - alert: CitasSinDesenlace
+        expr: oncologia_citas_sin_desenlace > 0
+        for: 24h
+        annotations:
+          resumen: "Hay citas pasadas sin marcar atendida / no asistio (sesgan la TNS)."
+
+      - alert: RecordatoriosFallidos
+        expr: increase(oncologia_recordatorios_fallidos[1h]) > 5
+        annotations:
+          resumen: "Recordatorios de Telegram fallando (afecta TNS). Revisar el bot y n8n."

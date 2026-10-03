@@ -1,0 +1,45 @@
+# Proxy de entrada en produccion (docker-compose.prod.yml). Caddy obtiene y
+# renueva los certificados TLS de cada dominio automaticamente (los dominios
+# deben apuntar por DNS a este servidor y los puertos 80/443 estar abiertos).
+#
+# Solo se enrutan las aplicaciones: /api llega al backend a traves del nginx
+# del frontend, y /actuator (metricas) nunca es alcanzable desde afuera.
+
+{
+	email {$ACME_EMAIL}
+}
+
+(seguridad) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	encode zstd gzip
+}
+
+# Portal del paciente: publico.
+{$DOMINIO_PORTAL} {
+	import seguridad
+	reverse_proxy frontend:80
+}
+
+# Intranet del personal: solo desde las redes permitidas (la autenticacion y
+# los roles del backend siguen aplicando dentro).
+{$DOMINIO_INTRANET} {
+	import seguridad
+	@fuera_de_la_red not remote_ip {$INTRANET_IPS_PERMITIDAS}
+	respond @fuera_de_la_red "Acceso restringido a la red de la fundacion" 403
+	reverse_proxy frontend:81
+}
+
+# n8n: los webhooks son publicos (Telegram los necesita y cada uno valida su
+# secreto); el editor solo desde las redes permitidas.
+{$DOMINIO_N8N} {
+	import seguridad
+	@editor {
+		not path /webhook/* /webhook-test/*
+		not remote_ip {$N8N_IPS_EDITOR}
+	}
+	respond @editor "Acceso restringido" 403
+	reverse_proxy n8n:5678
+}

@@ -1,0 +1,226 @@
+{
+  "name": "Oncologia - Recordatorios de Citas (Telegram)",
+  "id": "83b363fa-7970-5d11-adbf-d7aa6c8a3e8f",
+  "active": false,
+  "nodes": [
+    {
+      "id": "fcd85392-9b3c-53a6-84f6-109701861b01",
+      "name": "Cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "56037dcb-6933-5dd4-a85a-e5b6aff54961",
+      "name": "Tomar recordatorios pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/recordatorios/pendientes",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limite",
+              "value": "25"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "notes": "El backend devuelve solo los avisos que ya deben enviarse, con el texto listo, y los marca EN_PROCESO para que otra ejecucion no los tome. Si n8n no informa el resultado en 15 min, vuelven a la cola."
+    },
+    {
+      "id": "5563a5bd-3caa-5ead-afa8-c953aef4cb1d",
+      "name": "Enviar recordatorio con botones",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Confirmo",
+                    "additionalFields": {
+                      "callback_data": "=r:{{ $json.recordatorioId }}:CONFIRMAR"
+                    }
+                  },
+                  {
+                    "text": "📅 Reprogramar",
+                    "additionalFields": {
+                      "callback_data": "=r:{{ $json.recordatorioId }}:REPROGRAMAR"
+                    }
+                  },
+                  {
+                    "text": "❌ Cancelar",
+                    "additionalFields": {
+                      "callback_data": "=r:{{ $json.recordatorioId }}:CANCELAR"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "75a6bced-8d43-5a5e-8308-db08e3e53b01",
+      "name": "Informar envio exitoso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/recordatorios/{{ $('Tomar recordatorios pendientes').item.json.recordatorioId }}/resultado",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ enviado: true, mensajeExternoId: String($json.result?.message_id ?? $json.message_id ?? '') }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "378aa747-f815-570f-9443-c182f0235c68",
+      "name": "Informar envio fallido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/recordatorios/{{ $('Tomar recordatorios pendientes').item.json.recordatorioId }}/resultado",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ enviado: false, error: String($json.error?.message ?? $json.error ?? 'Error de Telegram') }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "Tomar recordatorios pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tomar recordatorios pendientes": {
+      "main": [
+        [
+          {
+            "node": "Enviar recordatorio con botones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar recordatorio con botones": {
+      "main": [
+        [
+          {
+            "node": "Informar envio exitoso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Informar envio fallido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "",
+    "timezone": "America/Lima"
+  },
+  "tags": [
+    {
+      "name": "oncologia"
+    }
+  ]
+}

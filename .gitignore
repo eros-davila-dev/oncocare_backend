@@ -36,3 +36,9 @@ build/
 
 ### VS Code ###
 .vscode/
+!.env.prod.example
+
+### Respaldos de la base (datos de pacientes: nunca al repositorio) ###
+respaldos/
+
+*.log

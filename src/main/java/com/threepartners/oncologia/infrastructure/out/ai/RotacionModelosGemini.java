@@ -28,7 +28,9 @@ import java.util.regex.Pattern;
  * - cuota DIARIA agotada: hasta la medianoche del Pacifico, cuando Google la reinicia;
  * - cuota por MINUTO: el tiempo que indica Google (RetryInfo) o 60 s;
  * - modelo inexistente o sin acceso: 6 h (probablemente un nombre mal escrito);
- * - Google saturado o sin respuesta: 30 s.
+ * - Google saturado o sin respuesta: 30 s, y el doble por cada fallo seguido
+ *   (1 min, 2 min... hasta 15 min); vuelve a 30 s cuando el modelo responde.
+ *   Asi, si un modelo pasa horas saturado, los mensajes no pierden tiempo con el.
  *
  * El estado vive en memoria: con varias instancias cada una lo aprende por
  * su cuenta, lo que solo cuesta un intento fallido por modelo.
@@ -41,9 +43,11 @@ public class RotacionModelosGemini {
     static final Duration ESPERA_POR_MINUTO = Duration.ofSeconds(60);
     static final Duration ESPERA_MODELO_INEXISTENTE = Duration.ofHours(6);
     static final Duration ESPERA_SATURADO = Duration.ofSeconds(30);
+    static final Duration ESPERA_SATURADO_MAXIMA = Duration.ofMinutes(15);
     private static final Pattern SEGUNDOS = Pattern.compile("(\\d+(?:\\.\\d+)?)s");
 
     private final Map<String, Instant> apartadosHasta = new ConcurrentHashMap<>();
+    private final Map<String, Integer> saturacionesSeguidas = new ConcurrentHashMap<>();
     private final Clock clock;
     private final ObjectMapper objectMapper;
 
@@ -81,7 +85,17 @@ public class RotacionModelosGemini {
     }
 
     public void saturado(String modelo, String detalle) {
-        apartar(modelo, clock.instant().plus(ESPERA_SATURADO), "no respondio o esta saturado (" + detalle + ")");
+        int seguidas = saturacionesSeguidas.merge(modelo, 1, Integer::sum);
+        Duration espera = ESPERA_SATURADO.multipliedBy(1L << Math.min(seguidas - 1, 10));
+        if (espera.compareTo(ESPERA_SATURADO_MAXIMA) > 0) {
+            espera = ESPERA_SATURADO_MAXIMA;
+        }
+        apartar(modelo, clock.instant().plus(espera), "no respondio o esta saturado (" + detalle + ")");
+    }
+
+    /** El modelo respondio: deja de contar sus fallos seguidos. */
+    public void exito(String modelo) {
+        saturacionesSeguidas.remove(modelo);
     }
 
     private void apartar(String modelo, Instant hasta, String motivo) {

@@ -1,0 +1,177 @@
+# Sistema completo en desarrollo: PostgreSQL, Redis, backend, frontend y n8n.
+#
+#   cd docker
+#   cp .env.example .env        # y completar
+#   docker compose up -d --build
+#
+# El backend se construye desde este repositorio (..) y el frontend desde la
+# carpeta hermana oncocare_frontend (cambiar con FRONTEND_DIR si esta en otra ruta).
+name: oncocare
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oncologia
+      POSTGRES_USER: oncologia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oncologia}
+      TZ: America/Lima
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Crea la base "n8n" (separada de la del sistema) la primera vez que se
+      # inicializa el volumen.
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oncologia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ..
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: America/Lima
+      DB_URL: jdbc:postgresql://postgres:5432/oncologia
+      DB_USUARIO: oncologia
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-oncologia}
+      JWT_SECRET: ${JWT_SECRET:-cambia-este-secreto-en-produccion-minimo-32-caracteres}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:4300}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-cambia-este-secreto-de-webhook}
+      N8N_BASE_URL: http://n8n:5678
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      GEMINI_MODELS: ${GEMINI_MODELS:-}
+      REGISTRO_PACIENTES_HABILITADO: ${REGISTRO_PACIENTES_HABILITADO:-false}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      FRONTEND_INTRANET_URL: ${FRONTEND_INTRANET_URL:-http://localhost:4300}
+      # Correo: API (principal) y SMTP (respaldo); ver .env.example
+      MAIL_FLAG_QUIPU: ${MAIL_FLAG_QUIPU:-false}
+      MAIL_API_URL: ${MAIL_API_URL:-}
+      MAIL_API_KEY: ${MAIL_API_KEY:-}
+      MAIL_FLAG_SMTP: ${MAIL_FLAG_SMTP:-false}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Fundacion Oncologica Three Partners}
+      MAIL_LOGO_URL: ${MAIL_LOGO_URL:-}
+    ports:
+      - "${BACKEND_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # Una imagen, dos aplicaciones: portal del paciente (:4200) e intranet del
+  # personal (:4300). En produccion, la intranet se publica solo en la red de
+  # la fundacion o detras de VPN.
+  frontend:
+    build:
+      context: ${FRONTEND_DIR:-../../oncocare_frontend}
+      # Enlace "ir al portal / a la intranet" de cada app
+      args:
+        PORTAL_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
+        INTRANET_URL: ${FRONTEND_INTRANET_URL:-http://localhost:4300}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${PORTAL_HOST_PORT:-4200}:80"
+      - "${INTRANET_HOST_PORT:-4300}:81"
+
+  # n8n en modo "regular": un solo proceso recibe webhooks y ejecuta los
+  # workflows, suficiente para el volumen del piloto. Para escalar, activar el
+  # perfil "escalado" (EXECUTIONS_MODE=queue + worker), ver n8n-worker abajo.
+  n8n:
+    image: n8nio/n8n:2.41.5
+    restart: unless-stopped
+    environment: &n8n-env
+      TZ: America/Lima
+      GENERIC_TIMEZONE: America/Lima
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      # URL publica HTTPS por la que Telegram entrega los updates (tunel en
+      # desarrollo, dominio en produccion). Ver n8n/README.md.
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      # Clave estable: sin ella, recrear el contenedor invalida las credenciales guardadas.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-cambia-esta-clave-de-cifrado-de-n8n}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: oncologia
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-oncologia}
+      EXECUTIONS_MODE: ${N8N_EXECUTIONS_MODE:-regular}
+      QUEUE_BULL_REDIS_HOST: redis
+      # n8n 2.x bloquea $env en los nodos por defecto; los workflows del
+      # proyecto leen de ahi la URL de la API y el secreto del webhook.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      # Usadas por los workflows en n8n/workflows/ (ver n8n/README.md)
+      ONCOLOGIA_API_URL: http://backend:8080/api/v1
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-cambia-este-secreto-de-webhook}
+      TELEGRAM_GRUPO_PERSONAL_CHAT_ID: ${TELEGRAM_GRUPO_PERSONAL_CHAT_ID:-}
+      TELEGRAM_GRUPO_TECNICO_CHAT_ID: ${TELEGRAM_GRUPO_TECNICO_CHAT_ID:-}
+      PORTAL_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "${N8N_HOST_PORT:-5678}:5678"
+
+  # Solo con: N8N_EXECUTIONS_MODE=queue docker compose --profile escalado up
+  n8n-worker:
+    image: n8nio/n8n:2.41.5
+    profiles: ["escalado"]
+    restart: unless-stopped
+    command: worker
+    environment: *n8n-env
+    depends_on:
+      - n8n
+      - redis
+
+  # Broker MQTT opcional para el adaptador de dispositivos IoT (seccion 14).
+  # Deshabilitado por defecto: activar junto con MQTT_ENABLED=true en el backend.
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1883:1883"
+  #   volumes:
+  #     - ./mosquitto/config:/mosquitto/config
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:

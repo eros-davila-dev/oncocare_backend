@@ -136,6 +136,7 @@ public class GeminiRestClientAdapter implements GeminiPort {
             try {
                 String respuestaCruda = llamar(modelo, cuerpo);
                 InterpretacionChatbot interpretacion = parsearRespuesta(respuestaCruda);
+                rotacion.exito(modelo);
                 log.debug("Gemini: respondio el modelo {} en {} ms", modelo, (System.nanoTime() - inicio) / 1_000_000);
                 return interpretacion;
             } catch (HttpClientErrorException.TooManyRequests e) {

@@ -1,0 +1,708 @@
+{
+  "name": "Oncologia - Router de Telegram",
+  "id": "4590567b-8574-5d53-9931-fd74024ec788",
+  "active": false,
+  "nodes": [
+    {
+      "id": "4a246eb1-9b0d-5481-b374-b41e2e10041e",
+      "name": "Al recibir un mensaje o boton",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "eda81b53-c0ee-5435-829d-9115ed14e761",
+      "name": "Clasificar update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Normaliza el update de Telegram y decide la ruta (indice de salida del Switch).\n// 0 vincular | 1 bienvenida | 2 /stop | 3 /persona | 4 boton de recordatorio | 5 valoracion | 6 texto libre\nconst salida = [];\nfor (const item of $input.all()) {\n  const u = item.json;\n  const callback = u.callback_query;\n  const mensaje = u.message;\n  if (callback) {\n    const [tipo, id, valor] = String(callback.data || '').split(':');\n    const base = {\n      chatId: callback.message?.chat?.id,\n      callbackQueryId: callback.id,\n      messageId: callback.message?.message_id,\n    };\n    if (tipo === 'r') salida.push({ json: { ...base, ruta: 4, recordatorioId: Number(id), accion: valor } });\n    else if (tipo === 'v') salida.push({ json: { ...base, ruta: 5, consultaId: Number(id), valor: Number(valor) } });\n    continue;\n  }\n  if (!mensaje || typeof mensaje.text !== 'string') continue; // fotos, stickers, etc.: se ignoran\n  const texto = mensaje.text.trim();\n  const chatId = mensaje.chat.id;\n  if (texto.startsWith('/start ')) salida.push({ json: { ruta: 0, chatId, token: texto.substring(7).trim() } });\n  else if (texto === '/start' || texto === '/ayuda') salida.push({ json: { ruta: 1, chatId } });\n  else if (texto === '/stop') salida.push({ json: { ruta: 2, chatId } });\n  else if (texto === '/persona') salida.push({ json: { ruta: 3, chatId } });\n  else salida.push({ json: { ruta: 6, chatId, texto } });\n}\nreturn salida;"
+      }
+    },
+    {
+      "id": "f0041404-f947-5d12-8ce9-c1dabb976c9b",
+      "name": "Segun la ruta",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 7,
+        "output": "={{ $json.ruta }}"
+      }
+    },
+    {
+      "id": "2f76659d-98a6-5d4b-a9b9-6ff54270ec41",
+      "name": "Vincular chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/vincular",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ token: $json.token, chatId: $json.chatId }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "ab05c4cd-3c9e-5688-99fc-c9b09cad0f51",
+      "name": "Responder vinculacion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        0
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "efc4e0f4-5ab0-57cd-a854-0b231e7f12ff",
+      "name": "Enviar bienvenida",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        760,
+        120
+      ],
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "Hola 👋 Soy el asistente virtual de la Fundación. Para recibir recordatorios de tus citas, vincula tu cuenta desde el portal (Mi perfil → Vincular Telegram) o pide el código QR en recepción. También puedes escribirme tus preguntas. Comandos: /persona para hablar con el equipo, /stop para dejar de recibir mensajes.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "5369c7c5-9969-5ff7-8579-441055162808",
+      "name": "Desvincular chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/desvincular",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "5c0b2dde-19b6-52ca-9398-958b83cb507a",
+      "name": "Confirmar desvinculacion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        240
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "78f788f9-2ce7-5f9a-80ec-472e8895b4dd",
+      "name": "Derivar a una persona",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/escalar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "15a83b4d-dfa4-5acd-a6fc-6b95451c1b25",
+      "name": "Confirmar derivacion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        360
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "e428d02e-8144-5164-bb3f-8884f48dd2c3",
+      "name": "Registrar respuesta al recordatorio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/accion-cita",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId, recordatorioId: $json.recordatorioId, accion: $json.accion }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "53f10e79-c0ef-5b02-8cb9-524448ea940c",
+      "name": "Cerrar boton de recordatorio",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        480
+      ],
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Clasificar update').item.json.callbackQueryId }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "adcc0525-43b7-5bef-86bd-1eaf75d49787",
+      "name": "Informar resultado de la accion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1240,
+        480
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $('Registrar respuesta al recordatorio').item.json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "9ed4dc9f-0898-5f2a-8b92-479c2f50f3c1",
+      "name": "Registrar valoracion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/valoracion",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId, consultaId: $json.consultaId, valor: $json.valor }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "be634714-f121-5fc5-93ad-9a487ec2e8a6",
+      "name": "Cerrar boton de valoracion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        600
+      ],
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Clasificar update').item.json.callbackQueryId }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "3e76b6d2-a9d0-57d9-9d67-a217864aa45a",
+      "name": "Agradecer valoracion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1240,
+        600
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $('Registrar valoracion').item.json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "628df866-0021-5374-a3dc-fe0a122aea12",
+      "name": "Preguntar al asistente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        720
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/mensaje",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId, texto: $json.texto }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "bbdadf0f-f0a4-504d-9be7-3ce3e6e3a05d",
+      "name": "Se puede valorar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1000,
+        720
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "64be2955-6e45-5a25-b073-9d88925c1043",
+              "leftValue": "={{ $json.estadoConsulta }}",
+              "rightValue": "RESUELTA_BOT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a27e3751-7b83-5ad3-978d-72a244f26e5d",
+      "name": "Responder con valoracion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1240,
+        660
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $json.respuesta }}",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "👍 Me ayudó",
+                    "additionalFields": {
+                      "callback_data": "=v:{{ $json.consultaId }}:1"
+                    }
+                  },
+                  {
+                    "text": "👎 No me ayudó",
+                    "additionalFields": {
+                      "callback_data": "=v:{{ $json.consultaId }}:-1"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    },
+    {
+      "id": "aff1fc09-9aa6-56ac-8c02-c6f89052c0ae",
+      "name": "Responder",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1240,
+        780
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $json.respuesta }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Al recibir un mensaje o boton": {
+      "main": [
+        [
+          {
+            "node": "Clasificar update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar update": {
+      "main": [
+        [
+          {
+            "node": "Segun la ruta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Segun la ruta": {
+      "main": [
+        [
+          {
+            "node": "Vincular chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar bienvenida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Desvincular chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Derivar a una persona",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar respuesta al recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar valoracion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preguntar al asistente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vincular chat": {
+      "main": [
+        [
+          {
+            "node": "Responder vinculacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desvincular chat": {
+      "main": [
+        [
+          {
+            "node": "Confirmar desvinculacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Derivar a una persona": {
+      "main": [
+        [
+          {
+            "node": "Confirmar derivacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar respuesta al recordatorio": {
+      "main": [
+        [
+          {
+            "node": "Cerrar boton de recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cerrar boton de recordatorio": {
+      "main": [
+        [
+          {
+            "node": "Informar resultado de la accion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar valoracion": {
+      "main": [
+        [
+          {
+            "node": "Cerrar boton de valoracion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cerrar boton de valoracion": {
+      "main": [
+        [
+          {
+            "node": "Agradecer valoracion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preguntar al asistente": {
+      "main": [
+        [
+          {
+            "node": "Se puede valorar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Se puede valorar": {
+      "main": [
+        [
+          {
+            "node": "Responder con valoracion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "",
+    "timezone": "America/Lima"
+  },
+  "tags": [
+    {
+      "name": "oncologia"
+    }
+  ]
+}

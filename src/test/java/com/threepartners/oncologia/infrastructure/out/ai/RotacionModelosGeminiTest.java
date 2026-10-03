@@ -152,6 +152,32 @@ class RotacionModelosGeminiTest {
     }
 
     @Test
+    void unModeloSaturadoSeApartaCadaVezMasTiempoHastaQueVuelveAResponder() {
+        respuestas.put("modelo-a", new Respuesta(503, "{\"error\":{\"code\":503,\"status\":\"UNAVAILABLE\"}}"));
+        List<Duration> esperas = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            preguntar();
+            Instant desde = reloj.instant();
+            while (rotacion.disponibles(List.of("modelo-a")).isEmpty()) {
+                reloj.avanzar(Duration.ofSeconds(1));
+            }
+            esperas.add(Duration.between(desde, reloj.instant()));
+        }
+        assertThat(esperas).containsExactly(Duration.ofSeconds(30), Duration.ofSeconds(60), Duration.ofSeconds(120));
+
+        respuestas.remove("modelo-a");
+        preguntar();
+        respuestas.put("modelo-a", new Respuesta(503, "{}"));
+        preguntar();
+        Instant desde = reloj.instant();
+        while (rotacion.disponibles(List.of("modelo-a")).isEmpty()) {
+            reloj.avanzar(Duration.ofSeconds(1));
+        }
+        assertThat(Duration.between(desde, reloj.instant())).as("tras responder bien vuelve a 30 s")
+                .isEqualTo(Duration.ofSeconds(30));
+    }
+
+    @Test
     void elModeloPreferidoVaPrimeroYNoSeRepiten() {
         var p = new GeminiProperties("k", "gemini-3.6-flash", List.of("gemini-3.8-flash", "gemini-3.6-flash", " ", "gemini-2.5-flash-lite"), "u");
         assertThat(p.modelosEnOrden()).containsExactly("gemini-3.6-flash", "gemini-3.8-flash", "gemini-2.5-flash-lite");
