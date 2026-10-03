@@ -47,13 +47,16 @@ public class Recordatorio {
      * Recordatorios que corresponden a una cita segun el canal disponible.
      * Solo se programan los momentos que aun no pasaron. Por llamada basta un
      * aviso el dia anterior: tres llamadas serian una carga para recepcion.
+     * Por correo, 72 h y 24 h: un correo 2 h antes rara vez se lee a tiempo.
      */
     public static List<Recordatorio> planificar(Cita cita, CanalRecordatorio canal, Instant ahora) {
         List<Recordatorio> plan = new ArrayList<>();
         Instant momentoCita = momentoDe(cita);
-        List<TipoRecordatorio> tipos = canal == CanalRecordatorio.TELEGRAM
-                ? List.of(TipoRecordatorio.values())
-                : List.of(TipoRecordatorio.T24H);
+        List<TipoRecordatorio> tipos = switch (canal) {
+            case TELEGRAM -> List.of(TipoRecordatorio.values());
+            case CORREO -> List.of(TipoRecordatorio.T72H, TipoRecordatorio.T24H);
+            case LLAMADA -> List.of(TipoRecordatorio.T24H);
+        };
         for (TipoRecordatorio tipo : tipos) {
             Instant programado = momentoCita.minus(tipo.anticipacion());
             if (programado.isAfter(ahora)) {

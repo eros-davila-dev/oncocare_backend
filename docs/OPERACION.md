@@ -11,6 +11,7 @@ Los dos repositorios van uno al lado del otro en el servidor: `oncocare_backend/
 3. **Variables**: `cd oncocare_backend/docker && cp .env.prod.example .env` y completar. Generar cada secreto con `openssl rand -base64 48`.
    - `ADMIN_PASSWORD_INICIAL`: contraseña del administrador (mínimo 12 caracteres). Reemplaza a la de la semilla (`Admin123!`) en el primer arranque. **Sin ella el backend no arranca**, porque la de la semilla está publicada en el README.
    - `N8N_ENCRYPTION_KEY`: no se puede cambiar después; guárdela en el gestor de contraseñas de la fundación.
+   - `APP_CLAVE_CIFRADO`: cifra la clave de Gemini que el administrador guarda en la intranet. Igual que la anterior, no se cambia; si se pierde, basta volver a ingresar la clave de Gemini en *Configuración > Asistente IA*.
    - `INTRANET_IPS_PERMITIDAS`: la IP pública de la sede (o de la VPN) en formato CIDR, por ejemplo `200.48.10.25/32`. Fuera de esas redes, la intranet responde 403.
 4. **Desplegar**:
 

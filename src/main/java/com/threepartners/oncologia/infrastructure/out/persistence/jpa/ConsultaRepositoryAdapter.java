@@ -40,6 +40,9 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
                 .turnos(c.getTurnos())
                 .ultimaActividadEn(c.getUltimaActividadEn() != null ? c.getUltimaActividadEn() : c.getAbiertaEn())
                 .notaResolucion(c.getNotaResolucion())
+                .categoria(c.getCategoria())
+                .derivada(c.isDerivada())
+                .reabierta(c.isReabierta())
                 .build();
         return aDominio(jpaRepository.save(entidad));
     }
@@ -109,6 +112,9 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
                 .turnos(e.getTurnos())
                 .ultimaActividadEn(e.getUltimaActividadEn())
                 .notaResolucion(e.getNotaResolucion())
+                .categoria(e.getCategoria())
+                .derivada(e.isDerivada())
+                .reabierta(e.isReabierta())
                 .build();
     }
 }

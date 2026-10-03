@@ -78,6 +78,9 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET (minimo 32 caracteres aleatorios)}
       N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:?Defina N8N_WEBHOOK_SECRET}
+      # Cifra la clave de Gemini guardada desde la intranet; estable como N8N_ENCRYPTION_KEY.
+      APP_CLAVE_CIFRADO: ${APP_CLAVE_CIFRADO:?Defina APP_CLAVE_CIFRADO (minimo 32 caracteres aleatorios)}
+      RECORDATORIOS_CORREO_HABILITADO: ${RECORDATORIOS_CORREO_HABILITADO:-false}
       CORS_ALLOWED_ORIGINS: https://${DOMINIO_PORTAL},https://${DOMINIO_INTRANET}
       FRONTEND_BASE_URL: https://${DOMINIO_PORTAL}
       FRONTEND_INTRANET_URL: https://${DOMINIO_INTRANET}

@@ -3,6 +3,9 @@ package com.threepartners.oncologia.infrastructure.out.correo;
 import com.threepartners.oncologia.domain.notificacion.TipoCorreo;
 import org.springframework.web.util.HtmlUtils;
 
+import java.util.Map;
+import java.util.regex.Pattern;
+
 /**
  * Plantillas de los correos transaccionales con la identidad de OncoCare.
  *
@@ -31,6 +34,9 @@ public final class PlantillasCorreo {
     private static final String INSTITUCION = "Fundación Oncológica Three Partners";
     private static final String LEMA = "Cuidamos hoy tu mañana";
 
+    /** Bloques que se quitan cuando el correo no lleva enlace (p. ej. el recordatorio al referido). */
+    private static final Pattern BLOQUE_ENLACE = Pattern.compile("<!--ENLACE-->.*?<!--/ENLACE-->", Pattern.DOTALL);
+
     private PlantillasCorreo() {
     }
 
@@ -40,13 +46,24 @@ public final class PlantillasCorreo {
 
     public static MensajeCorreo renderizar(TipoCorreo tipo, String destinatario, String nombre, String enlace,
                                            String logoUrl) {
-        Contenido c = contenido(tipo);
+        return renderizar(tipo, destinatario, nombre, enlace, logoUrl, Map.of());
+    }
+
+    /**
+     * @param datos valores propios del tipo de correo: para los recordatorios,
+     *              "fecha", "hora" y (al referido) "paciente", el nombre de pila.
+     */
+    public static MensajeCorreo renderizar(TipoCorreo tipo, String destinatario, String nombre, String enlace,
+                                           String logoUrl, Map<String, String> datos) {
+        Contenido c = contenido(tipo, datos == null ? Map.of() : datos, enlace != null && !enlace.isBlank());
         String pila = nombrePila(nombre);
         String saludo = pila.isEmpty() ? "Hola:" : "Hola, " + HtmlUtils.htmlEscape(pila) + ":";
         return new MensajeCorreo(destinatario, c.asunto(), html(c, saludo, enlace, logoUrl));
     }
 
-    private static Contenido contenido(TipoCorreo tipo) {
+    private static Contenido contenido(TipoCorreo tipo, Map<String, String> datos, boolean conEnlace) {
+        String fecha = HtmlUtils.htmlEscape(datos.getOrDefault("fecha", ""));
+        String hora = HtmlUtils.htmlEscape(datos.getOrDefault("hora", ""));
         return switch (tipo) {
             case VERIFICACION_EMAIL -> new Contenido(
                     "Confirma tu correo para activar tu cuenta",
@@ -81,6 +98,35 @@ public final class PlantillasCorreo {
                     "Este enlace vence en <strong>72 horas</strong> y solo puede usarse una vez. Si vence, usa "
                             + "<strong>«¿Olvidaste tu contraseña?»</strong> en la pantalla de ingreso.",
                     "Recibes este correo porque un administrador de la fundación registró tu cuenta.");
+            // Recordatorios: solo nombre de pila, fecha y hora (sin especialidad, medico ni diagnostico).
+            case RECORDATORIO_CITA -> new Contenido(
+                    "Recordatorio: tu cita del " + datos.getOrDefault("fecha", "") + " a las " + datos.getOrDefault("hora", ""),
+                    "Te esperamos en la fundación. Si no podrás asistir, avísanos con anticipación.",
+                    "Recordatorio de cita",
+                    "Tienes una cita programada",
+                    "Te recordamos tu cita en la fundación el <strong>" + fecha + "</strong> a las <strong>" + hora
+                            + "</strong>. Si no podrás asistir, avísanos con anticipación: así otro paciente puede usar ese espacio.",
+                    "Ver mis citas",
+                    conEnlace
+                            ? "Desde <strong>«Mis citas»</strong> del portal puedes confirmar, reprogramar o cancelar tu cita."
+                            : "Para confirmar, reprogramar o cancelar tu cita, comunícate con la recepción de la fundación.",
+                    "Recibes este correo porque tienes una cita registrada en la fundación. Si no deseas recibir "
+                            + "recordatorios, avísale a la recepción.");
+            case RECORDATORIO_CITA_REFERIDO -> {
+                String paciente = HtmlUtils.htmlEscape(nombrePila(datos.getOrDefault("paciente", "")));
+                yield new Contenido(
+                        "Recordatorio de cita de " + nombrePila(datos.getOrDefault("paciente", "")),
+                        "Te ayudamos a recordar una cita en la fundación.",
+                        "Recordatorio para el referido",
+                        "Ayúdanos a recordar esta cita",
+                        "<strong>" + paciente + "</strong> te registró como su persona de contacto y autorizó que te "
+                                + "enviemos sus recordatorios. Tiene una cita en la fundación el <strong>" + fecha
+                                + "</strong> a las <strong>" + hora + "</strong>. Te agradeceremos ayudarle a recordarla.",
+                        "",
+                        "Si la cita debe cambiarse, " + paciente + " puede comunicarse con la recepción de la fundación.",
+                        "Recibes este correo porque figuras como referido de un paciente de la fundación. Si no "
+                                + "deseas recibir estos avisos, pídele que lo indique en la recepción.");
+            }
         };
     }
 
@@ -92,8 +138,10 @@ public final class PlantillasCorreo {
     }
 
     private static String html(Contenido c, String saludo, String enlace, String logoUrl) {
-        String enlaceSeguro = HtmlUtils.htmlEscape(enlace);
-        return PLANTILLA
+        boolean conEnlace = enlace != null && !enlace.isBlank();
+        String enlaceSeguro = conEnlace ? HtmlUtils.htmlEscape(enlace) : "";
+        String plantilla = conEnlace ? PLANTILLA : BLOQUE_ENLACE.matcher(PLANTILLA).replaceAll("");
+        return plantilla
                 .replace("{{asunto}}", HtmlUtils.htmlEscape(c.asunto()))
                 .replace("{{preencabezado}}", HtmlUtils.htmlEscape(c.preencabezado()))
                 .replace("{{cabecera}}", cabecera(logoUrl))
@@ -179,7 +227,7 @@ public final class PlantillasCorreo {
                         <p style="margin:0 0 12px;font-size:16px;line-height:26px;color:{{texto}};">{{saludo}}</p>
                         <p style="margin:0 0 28px;font-size:16px;line-height:26px;color:{{texto}};">{{cuerpo}}</p>
 
-                        <!-- Boton -->
+                        <!--ENLACE-->
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
                           <tr>
                             <td align="center" bgcolor="{{azul}}" style="border-radius:10px;background-color:{{azul}};background-image:linear-gradient(90deg,{{violeta}},{{azul}});">
@@ -187,6 +235,7 @@ public final class PlantillasCorreo {
                             </td>
                           </tr>
                         </table>
+                        <!--/ENLACE-->
 
                         <!-- Vigencia -->
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
@@ -199,9 +248,10 @@ public final class PlantillasCorreo {
 
                         <p style="margin:0 0 24px;font-size:14px;line-height:22px;color:{{textoSuave}};">{{motivo}}</p>
 
-                        <!-- Enlace en texto -->
+                        <!--ENLACE-->
                         <p style="margin:0 0 6px;font-size:13px;line-height:20px;color:{{textoSuave}};">¿El botón no funciona? Copia y pega este enlace en tu navegador:</p>
                         <p style="margin:0 0 28px;font-size:13px;line-height:20px;word-break:break-all;"><a href="{{enlace}}" target="_blank" style="color:{{azul}};text-decoration:underline;">{{enlace}}</a></p>
+                        <!--/ENLACE-->
                       </td>
                     </tr>
 

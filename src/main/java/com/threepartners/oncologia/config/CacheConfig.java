@@ -29,10 +29,11 @@ import java.time.Duration;
 public class CacheConfig {
 
     public static final String PREGUNTAS_FRECUENTES_ACTIVAS = "preguntas-frecuentes-activas";
+    public static final String CONFIGURACION_GEMINI = "configuracion-gemini";
 
     @Bean
     CacheManager cacheManager() {
-        var caffeine = new CaffeineCacheManager(PREGUNTAS_FRECUENTES_ACTIVAS);
+        var caffeine = new CaffeineCacheManager(PREGUNTAS_FRECUENTES_ACTIVAS, CONFIGURACION_GEMINI);
         caffeine.setCaffeine(Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(5)).maximumSize(100).recordStats());
         caffeine.setAllowNullValues(false);
         return new TransactionAwareCacheManagerProxy(caffeine);

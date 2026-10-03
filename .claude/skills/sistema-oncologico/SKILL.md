@@ -5,7 +5,7 @@ description: Guía de desarrollo del "Sistema web con chatbot para la gestión d
 
 # Sistema web oncológico — guía del proyecto
 
-Este sistema existe para **demostrar con datos** tres hipótesis de una tesis preexperimental (pretest–postest, n = 30 pacientes). Cada línea de código debe ayudar a que los indicadores se midan de forma **automática, auditable y comparable** entre el antes y el después. Una funcionalidad bonita que no alimente o no proteja un indicador es secundaria; un indicador mal calculado invalida la tesis.
+Este sistema existe para **demostrar con datos** tres hipótesis de una tesis preexperimental (pretest–postest; desde la v8 de la tesis, 13 sesiones L-M-V por etapa). Cada línea de código debe ayudar a que los indicadores se midan de forma **automática, auditable y comparable** entre el antes y el después. Una funcionalidad bonita que no alimente o no proteja un indicador es secundaria; un indicador mal calculado invalida la tesis.
 
 ## 1. Los tres indicadores (la razón de ser del sistema)
 
@@ -16,7 +16,9 @@ Este sistema existe para **demostrar con datos** tres hipótesis de una tesis pr
 | H3 | Eficacia de la atención | **NCA** — Nivel de consultas atendidas (%) | `NCA = CA / TCR × 100` | Aumentar |
 
 - `TRC` tiempo de cada registro, `NCR` nº de registros; `NI` inasistencias, `NCC` citas cumplidas; `CA` consultas resueltas, `TCR` total de consultas registradas.
-- Análisis estadístico de la tesis: descriptivos + Shapiro-Wilk + **Wilcoxon para muestras relacionadas**, α = 0,05, en SPSS 29. Eso implica que el sistema debe poder entregar **datos pareados por paciente** (valor pretest y postest del mismo paciente), no solo promedios globales.
+- **Diseño vigente (tesis v8, 03/10/2026)**: la unidad de análisis son los procesos, no un grupo fijo de pacientes. 13 sesiones (lunes, miércoles y viernes) por etapa, **grupos independientes**: Shapiro-Wilk y luego t de Student (Levene) o U de Mann-Whitney, unilateral, α = 0,05, en SPSS 29. El sistema entrega **un valor por sesión** (Estudio > Recolección por sesión, `RecoleccionSesiones`) y las fichas evento por evento con las columnas del Instrumento. El pretest (agosto de 2026) está en el Instrumento validado por la fundación; el postest se recolecta con el sistema.
+- Definiciones v8: TPR = alta de paciente por el personal (intranet); TA = no asistidas sin aviso / citas elegibles (ATENDIDA + NO_ASISTIO); NCA = resueltas por el chatbot en el primer contacto, sin derivación ni reapertura / consultas con desenlace. Los mensajes fuera de alcance (`OUT_OF_SCOPE`) no se registran como consulta. El módulo pareado (participantes, Wilcoxon) queda del diseño anterior.
+- Nunca generar ni completar datos del postest: deben salir del uso real del sistema en la fundación.
 
 Antes de tocar cualquier cosa relacionada con estas métricas, lee `references/indicadores-tesis.md`: contiene las definiciones operativas exactas (qué cuenta y qué no), el modelo de datos de medición, los casos borde y el formato de exportación. Está escrito para resolver las ambigüedades que la fórmula sola no resuelve.
 

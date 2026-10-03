@@ -87,7 +87,7 @@ class ChatbotOrquestadorUseCaseTest {
                 registrarAsistenciaCitaUseCase, frontendProperties, registroProperties, gestorConsultas,
                 preguntaFrecuenteRepositoryPort, Clock.systemUTC(), accionesCitaPacienteService);
         when(conversacionChatbotRepositoryPort.listarPorSesion(anyString(), any(Integer.class))).thenReturn(List.of());
-        lenient().when(gestorConsultas.registrarTurno(any(), any(), any(), any(), any(), any(), any()))
+        lenient().when(gestorConsultas.registrarTurno(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(Consulta.builder().id(1L).build());
     }
 
@@ -174,7 +174,7 @@ class ChatbotOrquestadorUseCaseTest {
         useCase.procesar("sesion-6", "mis citas", CanalConsulta.CHATBOT_WEB, 5L, Rol.PACIENTE, "127.0.0.1");
 
         verify(gestorConsultas).registrarTurno(eq("sesion-6"), eq(CanalConsulta.CHATBOT_WEB), eq(10L),
-                eq(Intencion.CHECK_APPOINTMENT), eq(ResultadoAccion.EXITO), eq("mis citas"), any());
+                eq(Intencion.CHECK_APPOINTMENT), eq(ResultadoAccion.EXITO), eq("mis citas"), any(), any());
     }
 
     @Test
@@ -185,7 +185,7 @@ class ChatbotOrquestadorUseCaseTest {
         useCase.procesar("sesion-7", "quiero una cita", CanalConsulta.CHATBOT_WEB, null, null, "127.0.0.1");
 
         verify(gestorConsultas).registrarTurno(eq("sesion-7"), any(), eq(null), eq(Intencion.BOOK_APPOINTMENT),
-                eq(ResultadoAccion.REQUIERE_SESION), any(), any());
+                eq(ResultadoAccion.REQUIERE_SESION), any(), any(), any());
     }
 
     @Test
@@ -196,6 +196,45 @@ class ChatbotOrquestadorUseCaseTest {
         useCase.procesar("sesion-8", "me duele despues de la quimio", CanalConsulta.CHATBOT_WEB, null, null, "127.0.0.1");
 
         verify(gestorConsultas).registrarTurno(eq("sesion-8"), any(), any(), eq(Intencion.ESCALATE_TO_STAFF),
-                eq(ResultadoAccion.ESCALAR), any(), any());
+                eq(ResultadoAccion.ESCALAR), any(), any(), any());
+    }
+
+    @Test
+    void unMensajeFueraDeAlcanceSeRespondePeroNoSeRegistraComoConsulta() {
+        when(geminiPort.interpretar(anyString(), any(), any()))
+                .thenReturn(new InterpretacionChatbot(Intencion.OUT_OF_SCOPE, Map.of(), false,
+                        "Solo puedo ayudarte con temas de la fundacion.", null, true));
+
+        var respuesta = useCase.procesar("sesion-9", "quien gano el mundial", CanalConsulta.CHATBOT_WEB, null, null, "127.0.0.1");
+
+        assertThat(respuesta.consultaId()).isNull();
+        verifyNoInteractions(gestorConsultas);
+        verify(conversacionChatbotRepositoryPort).guardar(any());
+    }
+
+    @Test
+    void unaRespuestaGeneralSinInformacionOficialSeDerivaAlPersonal() {
+        when(geminiPort.interpretar(anyString(), any(), any()))
+                .thenReturn(new InterpretacionChatbot(Intencion.GENERAL_QUERY, Map.of(), false,
+                        "El equipo de la fundacion te confirmara el horario.",
+                        com.threepartners.oncologia.domain.estudio.CategoriaConsulta.HORARIOS, false));
+
+        useCase.procesar("sesion-10", "cual es el horario", CanalConsulta.CHATBOT_WEB, null, null, "127.0.0.1");
+
+        verify(gestorConsultas).registrarTurno(eq("sesion-10"), any(), any(), eq(Intencion.GENERAL_QUERY),
+                eq(ResultadoAccion.ESCALAR), any(), any(),
+                eq(com.threepartners.oncologia.domain.estudio.CategoriaConsulta.HORARIOS));
+    }
+
+    @Test
+    void unaRespuestaGeneralConInformacionOficialQuedaComoInformativa() {
+        when(geminiPort.interpretar(anyString(), any(), any()))
+                .thenReturn(new InterpretacionChatbot(Intencion.GENERAL_QUERY, Map.of(), false,
+                        "Atendemos de lunes a viernes.", com.threepartners.oncologia.domain.estudio.CategoriaConsulta.HORARIOS, true));
+
+        useCase.procesar("sesion-11", "cual es el horario", CanalConsulta.CHATBOT_WEB, null, null, "127.0.0.1");
+
+        verify(gestorConsultas).registrarTurno(eq("sesion-11"), any(), any(), eq(Intencion.GENERAL_QUERY),
+                eq(ResultadoAccion.INFORMATIVA), any(), any(), any());
     }
 }

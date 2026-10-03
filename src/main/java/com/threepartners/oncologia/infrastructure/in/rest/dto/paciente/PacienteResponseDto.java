@@ -22,6 +22,8 @@ public record PacienteResponseDto(
         ConvenioSeguro convenioSeguro,
         String contactoEmergenciaNombre,
         String contactoEmergenciaTelefono,
+        String contactoEmergenciaEmail,
+        boolean contactoRecibeRecordatorios,
         boolean activo,
         Instant fechaRegistro
 ) {

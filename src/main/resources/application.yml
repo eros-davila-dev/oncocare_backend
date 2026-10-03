@@ -96,6 +96,9 @@ app:
   recordatorios:
     # Frecuencia con que se programan los recordatorios de las citas proximas.
     cron: ${RECORDATORIOS_CRON:0 2/15 * * * *}
+    # Recordatorios por correo (72 h y 24 h) ademas de Telegram o la llamada.
+    # Apagado: la intervencion de la tesis es Telegram (ver RecordatoriosProperties).
+    correo-habilitado: ${RECORDATORIOS_CORREO_HABILITADO:false}
   agenda:
     # Horas despues de la cita en que, si nadie registro el desenlace, se
     # marca NO_ASISTIO automaticamente (indicador TNS; corregible con motivo).
@@ -104,10 +107,17 @@ app:
     # Una sesion de medicion del TPR abierta y no guardada en este tiempo se
     # marca ABANDONADA y queda fuera del promedio.
     minutos-maximos-registro: ${ESTUDIO_MINUTOS_MAXIMOS_REGISTRO:60}
+    # Dias de observacion de cada etapa (tesis v8: lunes, miercoles y viernes).
+    dias-sesion: ${ESTUDIO_DIAS_SESION:MONDAY,WEDNESDAY,FRIDAY}
   jwt:
     secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
     access-token-minutos: ${JWT_ACCESS_MINUTOS:15}
     refresh-token-dias: ${JWT_REFRESH_DIAS:7}
+  cifrado:
+    # Cifra los secretos guardados en la base (clave de Gemini cargada en la
+    # intranet). Vacio = se deriva de JWT_SECRET. No cambiarla una vez en uso:
+    # habria que volver a ingresar la clave de Gemini.
+    clave: ${APP_CLAVE_CIFRADO:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:4300}
   frontend:
@@ -125,6 +135,8 @@ app:
     base-url: ${N8N_BASE_URL:http://localhost:5678}
     webhook-secret: ${N8N_WEBHOOK_SECRET:cambia-este-secreto-de-webhook}
   gemini:
+    # Valores por defecto: el administrador puede reemplazar la clave y los
+    # modelos desde la intranet (Configuracion > Asistente IA) sin reiniciar.
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-3.6-flash}
     # Reserva: si el modelo en uso agota su cuota gratuita (por minuto o por dia)

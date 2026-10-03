@@ -55,6 +55,7 @@ public class CompletarPerfilPacienteUseCase {
 
         datos.setUsuarioId(usuarioAutenticadoId);
         datos.setEmail(email);
+        datos.validarDatosDeContacto();
         datos.setActivo(true);
         datos.setFechaRegistro(clock.instant());
 

@@ -45,6 +45,14 @@ class RecordatorioTest {
     }
 
     @Test
+    void porCorreoSeAvisa72Y24HorasAntes() {
+        var plan = Recordatorio.planificar(cita(LocalDate.of(2026, 10, 9), LocalTime.of(9, 0)), CanalRecordatorio.CORREO, AHORA);
+
+        assertThat(plan).extracting(Recordatorio::getTipo).containsExactly(TipoRecordatorio.T72H, TipoRecordatorio.T24H);
+        assertThat(plan).allMatch(r -> r.getCanal() == CanalRecordatorio.CORREO);
+    }
+
+    @Test
     void dejaDeEstarVigenteSiLaCitaSeReprogramaOSeCancela() {
         Cita cita = cita(LocalDate.of(2026, 10, 9), LocalTime.of(9, 0));
         Recordatorio aviso = Recordatorio.planificar(cita, CanalRecordatorio.TELEGRAM, AHORA).get(1);

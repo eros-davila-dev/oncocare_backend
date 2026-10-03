@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.application.recordatorio;
 
+import com.threepartners.oncologia.config.RecordatoriosProperties;
 import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.CitaRepositoryPort;
 import com.threepartners.oncologia.domain.paciente.Paciente;
@@ -38,6 +39,7 @@ public class ProgramarRecordatoriosUseCase {
     private final CitaRepositoryPort citaRepositoryPort;
     private final PacienteRepositoryPort pacienteRepositoryPort;
     private final RecordatorioRepositoryPort recordatorioRepositoryPort;
+    private final RecordatoriosProperties recordatoriosProperties;
     private final Clock clock;
 
     @Transactional
@@ -52,11 +54,10 @@ public class ProgramarRecordatoriosUseCase {
                 continue;
             }
             CanalRecordatorio canal = paciente.tieneTelegram() ? CanalRecordatorio.TELEGRAM : CanalRecordatorio.LLAMADA;
-            for (Recordatorio recordatorio : Recordatorio.planificar(cita, canal, ahora)) {
-                if (!recordatorioRepositoryPort.existe(cita.getId(), recordatorio.getTipo(), canal)) {
-                    recordatorioRepositoryPort.guardar(recordatorio);
-                    creados++;
-                }
+            creados += programar(cita, canal, ahora);
+            // El correo se suma al canal principal (no lo reemplaza): llega tambien al referido.
+            if (recordatoriosProperties.correoHabilitado() && paciente.tieneEmail()) {
+                creados += programar(cita, CanalRecordatorio.CORREO, ahora);
             }
         }
 
@@ -66,6 +67,17 @@ public class ProgramarRecordatoriosUseCase {
         }
         if (creados > 0) {
             log.info("{} recordatorios de cita programados", creados);
+        }
+        return creados;
+    }
+
+    private int programar(Cita cita, CanalRecordatorio canal, Instant ahora) {
+        int creados = 0;
+        for (Recordatorio recordatorio : Recordatorio.planificar(cita, canal, ahora)) {
+            if (!recordatorioRepositoryPort.existe(cita.getId(), recordatorio.getTipo(), canal)) {
+                recordatorioRepositoryPort.guardar(recordatorio);
+                creados++;
+            }
         }
         return creados;
     }

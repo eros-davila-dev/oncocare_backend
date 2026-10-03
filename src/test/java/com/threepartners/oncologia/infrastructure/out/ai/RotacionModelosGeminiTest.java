@@ -81,12 +81,30 @@ class RotacionModelosGeminiTest {
         var propiedades = new GeminiProperties("clave", "modelo-a", List.of("modelo-b", "modelo-c"),
                 "http://127.0.0.1:" + servidor.getAddress().getPort(), Duration.ofMillis(300), Duration.ofSeconds(5));
         rotacion = new RotacionModelosGemini(reloj, json);
-        adapter = new GeminiRestClientAdapter(propiedades, RestClient.builder(), json, rotacion);
+        adapter = new GeminiRestClientAdapter(propiedades, RestClient.builder(), json, rotacion,
+                new ResolutorConfiguracionGemini(propiedades, GeminiRestClientAdapterTest.repositorio(java.util.Optional.empty())));
     }
 
     @AfterEach
     void detener() {
         servidor.stop(0);
+    }
+
+    @Test
+    void elEstadoMuestraLosModelosApartadosYReiniciarLosLibera() {
+        respuestas.put("modelo-a", new Respuesta(429, CUOTA_DIARIA));
+
+        preguntar();
+
+        var estado = rotacion.estado(List.of("modelo-a", "modelo-b"));
+        assertThat(estado.get(0).disponible()).isFalse();
+        assertThat(estado.get(0).motivo()).contains("cuota diaria");
+        assertThat(estado.get(0).apartadoHasta()).isAfter(INICIO);
+        assertThat(estado.get(1).disponible()).isTrue();
+
+        rotacion.reiniciar();
+
+        assertThat(rotacion.estado(List.of("modelo-a")).get(0).disponible()).isTrue();
     }
 
     @Test

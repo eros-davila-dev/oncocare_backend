@@ -1,6 +1,7 @@
 package com.threepartners.oncologia.domain.paciente;
 
 import com.threepartners.oncologia.domain.shared.ZonaHoraria;
+import com.threepartners.oncologia.domain.shared.exception.ValidacionDeNegocioException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,6 +35,10 @@ public class Paciente {
     private ConvenioSeguro convenioSeguro;
     private String contactoEmergenciaNombre;
     private String contactoEmergenciaTelefono;
+    /** Correo del referido (el contacto de emergencia): recibe copia de los recordatorios si el paciente lo autoriza. */
+    private String contactoEmergenciaEmail;
+    /** Consentimiento del paciente para enviar a su referido los recordatorios (Ley 29733). */
+    private boolean contactoRecibeRecordatorios;
     private boolean activo;
     private Instant fechaRegistro;
     /** Chat de Telegram vinculado (recordatorios y chatbot). Null si no lo vinculo. */
@@ -74,6 +79,33 @@ public class Paciente {
     public void desvincularTelegram() {
         this.telegramChatId = null;
         this.telegramVinculadoEn = null;
+    }
+
+    /**
+     * Datos de contacto obligatorios para registrar o editar un paciente: su
+     * correo (recordatorios de cita) y el de su referido. Se valida en el
+     * dominio y no en la base para no invalidar a los pacientes ya cargados:
+     * a esos se les pide al editarlos.
+     */
+    public void validarDatosDeContacto() {
+        if (email == null || email.isBlank()) {
+            throw new ValidacionDeNegocioException("El correo electronico del paciente es obligatorio");
+        }
+        if (contactoEmergenciaEmail == null || contactoEmergenciaEmail.isBlank()) {
+            throw new ValidacionDeNegocioException("El correo del referido es obligatorio");
+        }
+        if (contactoEmergenciaEmail.strip().equalsIgnoreCase(email.strip())) {
+            throw new ValidacionDeNegocioException("El correo del referido debe ser distinto al del paciente");
+        }
+    }
+
+    public boolean tieneEmail() {
+        return email != null && !email.isBlank();
+    }
+
+    /** El referido solo recibe copia con el consentimiento del paciente y si tiene correo. */
+    public boolean referidoRecibeRecordatorios() {
+        return contactoRecibeRecordatorios && contactoEmergenciaEmail != null && !contactoEmergenciaEmail.isBlank();
     }
 
     public String nombreCompleto() {
