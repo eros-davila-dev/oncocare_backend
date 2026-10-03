@@ -12,9 +12,14 @@ import com.threepartners.oncologia.domain.chatbot.PreguntaFrecuente;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +93,21 @@ public class GeminiRestClientAdapter implements GeminiPort {
     private final GeminiProperties geminiProperties;
     private final RestClient.Builder restClientBuilder;
     private final ObjectMapper objectMapper;
+    private final RotacionModelosGemini rotacion;
+    private volatile RestClient cliente;
+
+    /** Cliente propio con los tiempos de Gemini (sin tocar el builder compartido). */
+    private RestClient clienteGemini() {
+        RestClient actual = cliente;
+        if (actual == null) {
+            var fabrica = new SimpleClientHttpRequestFactory();
+            fabrica.setConnectTimeout(Duration.ofSeconds(5));
+            fabrica.setReadTimeout(geminiProperties.timeoutPorModelo());
+            actual = restClientBuilder.clone().requestFactory(fabrica).build();
+            cliente = actual;
+        }
+        return actual;
+    }
 
     @Override
     public InterpretacionChatbot interpretar(String mensajeUsuario, List<ConversacionChatbot> historialReciente, ContextoUsuarioChatbot contexto) {
@@ -96,25 +116,69 @@ public class GeminiRestClientAdapter implements GeminiPort {
             return respuestaNoDisponible();
         }
 
-        try {
-            ObjectNode cuerpo = construirCuerpo(mensajeUsuario, historialReciente, contexto);
-
-            String uri = "%s/v1beta/models/%s:generateContent".formatted(geminiProperties.baseUrl(), geminiProperties.model());
-
-            String respuestaCruda = restClientBuilder.build()
-                    .post()
-                    .uri(uri)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header("x-goog-api-key", geminiProperties.apiKey())
-                    .body(cuerpo)
-                    .retrieve()
-                    .body(String.class);
-
-            return parsearRespuesta(respuestaCruda);
-        } catch (Exception e) {
-            log.error("Fallo la llamada a Gemini", e);
+        ObjectNode cuerpo = construirCuerpo(mensajeUsuario, historialReciente, contexto);
+        List<String> modelos = rotacion.disponibles(geminiProperties.modelosEnOrden());
+        if (modelos.isEmpty()) {
+            log.warn("Gemini: todos los modelos configurados agotaron su cuota; respuesta en modo degradado");
             return respuestaNoDisponible();
         }
+
+        // Si un modelo agoto su cuota o no responde, se prueba el siguiente en
+        // este mismo mensaje: el paciente no ve el cambio de modelo.
+        long inicioMensaje = System.nanoTime();
+        for (String modelo : modelos) {
+            if (Duration.ofNanos(System.nanoTime() - inicioMensaje).compareTo(geminiProperties.presupuestoTotal()) >= 0) {
+                log.warn("Gemini: se agoto el tiempo maximo por mensaje ({}); respuesta en modo degradado",
+                        geminiProperties.presupuestoTotal());
+                return respuestaNoDisponible();
+            }
+            long inicio = System.nanoTime();
+            try {
+                String respuestaCruda = llamar(modelo, cuerpo);
+                InterpretacionChatbot interpretacion = parsearRespuesta(respuestaCruda);
+                log.debug("Gemini: respondio el modelo {} en {} ms", modelo, (System.nanoTime() - inicio) / 1_000_000);
+                return interpretacion;
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                rotacion.cuotaAgotada(modelo, e.getResponseBodyAsString());
+            } catch (HttpClientErrorException.NotFound | HttpClientErrorException.Forbidden e) {
+                rotacion.modeloInexistente(modelo);
+            } catch (HttpServerErrorException e) {
+                rotacion.saturado(modelo, "HTTP " + e.getStatusCode().value());
+            } catch (ResourceAccessException e) {
+                rotacion.saturado(modelo, "sin respuesta: " + e.getMostSpecificCause().getClass().getSimpleName());
+            } catch (Exception e) {
+                if (esFallaDeRed(e)) {
+                    // El tiempo vencio leyendo la respuesta: Spring lo envuelve en un error generico.
+                    rotacion.saturado(modelo, "sin respuesta: " + e.getClass().getSimpleName());
+                    continue;
+                }
+                // Respuesta invalida o error no relacionado con la cuota: otro modelo no lo arreglaria.
+                log.error("Fallo la llamada a Gemini con el modelo {}", modelo, e);
+                return respuestaNoDisponible();
+            }
+        }
+        log.warn("Gemini: ningun modelo disponible pudo responder; respuesta en modo degradado");
+        return respuestaNoDisponible();
+    }
+
+    private static boolean esFallaDeRed(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof java.io.IOException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String llamar(String modelo, ObjectNode cuerpo) {
+        return clienteGemini()
+                .post()
+                .uri("%s/v1beta/models/%s:generateContent".formatted(geminiProperties.baseUrl(), modelo))
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-goog-api-key", geminiProperties.apiKey())
+                .body(cuerpo)
+                .retrieve()
+                .body(String.class);
     }
 
     private ObjectNode construirCuerpo(String mensajeUsuario, List<ConversacionChatbot> historial, ContextoUsuarioChatbot contexto) {

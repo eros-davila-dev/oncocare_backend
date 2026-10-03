@@ -127,7 +127,16 @@ app:
   gemini:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-3.6-flash}
+    # Reserva: si el modelo en uso agota su cuota gratuita (por minuto o por dia)
+    # se usa el siguiente. Primero los Flash (20/dia cada uno) y al final los
+    # Flash-Lite (hasta 500/dia). Separados por coma; ver RotacionModelosGemini.
+    # Vacio = GeminiProperties.MODELOS_POR_DEFECTO.
+    modelos: ${GEMINI_MODELS:}
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+    # Espera maxima por modelo y por mensaje; al superarla se prueba el siguiente
+    # modelo o, si se acabo el presupuesto, se deriva a una persona.
+    timeout-por-modelo: ${GEMINI_TIMEOUT_POR_MODELO:10s}
+    presupuesto-total: ${GEMINI_PRESUPUESTO_TOTAL:20s}
   device:
     mqtt:
       enabled: ${MQTT_ENABLED:false}

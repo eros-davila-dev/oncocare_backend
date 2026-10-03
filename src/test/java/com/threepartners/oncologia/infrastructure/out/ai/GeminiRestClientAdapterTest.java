@@ -16,7 +16,8 @@ class GeminiRestClientAdapterTest {
     @Test
     void respondeEnModoDegradadoSiNoHayApiKeyConfigurada() {
         GeminiProperties properties = new GeminiProperties("", "gemini-2.0-flash", "https://generativelanguage.googleapis.com");
-        GeminiRestClientAdapter adapter = new GeminiRestClientAdapter(properties, RestClient.builder(), new ObjectMapper());
+        GeminiRestClientAdapter adapter = new GeminiRestClientAdapter(properties, RestClient.builder(), new ObjectMapper(),
+                new RotacionModelosGemini(java.time.Clock.systemUTC(), new ObjectMapper()));
 
         InterpretacionChatbot resultado = adapter.interpretar("hola", List.of(), new ContextoUsuarioChatbot(false, false, null));
 
@@ -30,7 +31,8 @@ class GeminiRestClientAdapterTest {
         // Sin servidor real detras, la llamada a un host invalido debe fallar
         // y caer al modo degradado en vez de propagar la excepcion.
         GeminiProperties properties = new GeminiProperties("clave-de-prueba", "gemini-2.0-flash", "http://host-invalido.invalido");
-        GeminiRestClientAdapter adapter = new GeminiRestClientAdapter(properties, RestClient.builder(), new ObjectMapper());
+        GeminiRestClientAdapter adapter = new GeminiRestClientAdapter(properties, RestClient.builder(), new ObjectMapper(),
+                new RotacionModelosGemini(java.time.Clock.systemUTC(), new ObjectMapper()));
 
         InterpretacionChatbot resultado = adapter.interpretar("hola", List.of(), new ContextoUsuarioChatbot(false, false, null));
 
