@@ -10,11 +10,14 @@ import com.threepartners.oncologia.infrastructure.in.rest.dto.chatbot.ValorarCon
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * Endpoint que consume el widget del navegador (seccion 12). Es publico
@@ -36,7 +39,14 @@ public class ChatbotController {
     public ChatbotMensajeResponseDto enviarMensaje(@Valid @RequestBody ChatbotMensajeRequestDto dto, HttpServletRequest request) {
         var respuesta = chatbotOrquestadorUseCase.procesar(dto.sesionId(), dto.mensaje(), CanalConsulta.CHATBOT_WEB,
                 AutenticacionActual.usuarioId(), AutenticacionActual.rol(), AutenticacionActual.ipOrigen(request));
-        return new ChatbotMensajeResponseDto(respuesta.texto(), respuesta.consultaId(), respuesta.estadoConsulta());
+        return new ChatbotMensajeResponseDto(respuesta.texto(), respuesta.consultaId(), respuesta.estadoConsulta(),
+                respuesta.sugerencias());
+    }
+
+    /** Botones de respuesta rapida al abrir el chat (publico, como /mensaje). */
+    @GetMapping("/sugerencias")
+    public List<String> sugerencias() {
+        return chatbotOrquestadorUseCase.sugerenciasIniciales(AutenticacionActual.usuarioId(), AutenticacionActual.rol());
     }
 
     /** 👍/👎 sobre la respuesta: un 👎 a una respuesta del bot la pasa al personal (NCA). */

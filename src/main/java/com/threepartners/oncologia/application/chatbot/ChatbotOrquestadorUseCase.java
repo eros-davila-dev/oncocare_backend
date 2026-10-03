@@ -94,6 +94,7 @@ public class ChatbotOrquestadorUseCase {
     private final PreguntaFrecuenteRepositoryPort preguntaFrecuenteRepositoryPort;
     private final Clock clock;
     private final AccionesCitaPacienteService accionesCitaPacienteService;
+    private final SugerenciasChatbot sugerenciasChatbot;
 
     /**
      * Deliberadamente sin @Transactional: la llamada a Gemini es una peticion
@@ -116,6 +117,12 @@ public class ChatbotOrquestadorUseCase {
      * JWT sino del chat vinculado: si el chat no esta vinculado, el bot
      * responde preguntas generales e invita a vincularlo.
      */
+    /** Botones de respuesta rapida al abrir el chat, segun quien escribe. */
+    public List<String> sugerenciasIniciales(Long usuarioAutenticadoId, Rol rolAutenticado) {
+        Paciente paciente = resolverPaciente(usuarioAutenticadoId, rolAutenticado);
+        return sugerenciasChatbot.iniciales(construirContexto(usuarioAutenticadoId, rolAutenticado, paciente));
+    }
+
     public RespuestaChatbot procesarDesdeTelegram(Long chatId, String mensajeUsuario) {
         Paciente paciente = pacienteRepositoryPort.buscarPorTelegramChatId(chatId).orElse(null);
         ContextoUsuarioChatbot contexto = paciente != null
@@ -138,8 +145,8 @@ public class ChatbotOrquestadorUseCase {
         RespuestaAccion respuesta = ejecutor.apply(interpretacion);
 
         CanalConsulta canalEfectivo = canal != null ? canal : CanalConsulta.CHATBOT_WEB;
-        // Un mensaje fuera de alcance se responde pero no es una consulta: no entra al NCA.
-        Consulta consulta = interpretacion.intencion() == Intencion.OUT_OF_SCOPE ? null
+        // Un mensaje fuera de alcance o un saludo se responde pero no es una consulta: no entra al NCA.
+        Consulta consulta = noEsConsulta(interpretacion.intencion()) ? null
                 : gestorConsultas.registrarTurno(sesionId, canalEfectivo, paciente != null ? paciente.getId() : null,
                         interpretacion.intencion(), respuesta.resultado(), mensajeUsuario, inicioTurno,
                         interpretacion.categoria());
@@ -155,8 +162,13 @@ public class ChatbotOrquestadorUseCase {
                 .fecha(clock.instant())
                 .build());
 
-        return consulta == null ? new RespuestaChatbot(respuesta.texto(), null, null)
-                : new RespuestaChatbot(respuesta.texto(), consulta.getId(), consulta.getResultado());
+        var sugerencias = sugerenciasChatbot.despues(interpretacion, respuesta.resultado(), contextoUsuario);
+        return consulta == null ? new RespuestaChatbot(respuesta.texto(), null, null, sugerencias)
+                : new RespuestaChatbot(respuesta.texto(), consulta.getId(), consulta.getResultado(), sugerencias);
+    }
+
+    private static boolean noEsConsulta(Intencion intencion) {
+        return intencion == Intencion.OUT_OF_SCOPE || intencion == Intencion.GREETING;
     }
 
     private Paciente resolverPaciente(Long usuarioAutenticadoId, Rol rolAutenticado) {
@@ -180,7 +192,7 @@ public class ChatbotOrquestadorUseCase {
     private RespuestaAccion ejecutarAccion(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
         return switch (interpretacion.intencion()) {
             case GENERAL_QUERY, HELP -> informativa(interpretacion);
-            case OUT_OF_SCOPE -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
+            case OUT_OF_SCOPE, GREETING -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
             case ESCALATE_TO_STAFF -> new RespuestaAccion(interpretacion.respuestaSugerida(), ESCALAR);
             case REGISTER_PATIENT -> registroProperties.pacientesHabilitado()
                     ? new RespuestaAccion("Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
@@ -202,7 +214,7 @@ public class ChatbotOrquestadorUseCase {
     private RespuestaAccion ejecutarAccionTelegram(InterpretacionChatbot interpretacion, Paciente paciente) {
         return switch (interpretacion.intencion()) {
             case GENERAL_QUERY, HELP -> informativa(interpretacion);
-            case OUT_OF_SCOPE -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
+            case OUT_OF_SCOPE, GREETING -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
             case ESCALATE_TO_STAFF -> new RespuestaAccion(interpretacion.respuestaSugerida(), ESCALAR);
             case REGISTER_PATIENT -> new RespuestaAccion("Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
                     + "/auth/registro o pedir ayuda en recepcion.", INFORMATIVA);

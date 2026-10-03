@@ -22,5 +22,12 @@ public enum Intencion {
      * registra como consulta: no es una necesidad de las categorias del
      * estudio y no debe inflar el NCA (tesis v8, criterios de exclusion).
      */
-    OUT_OF_SCOPE
+    OUT_OF_SCOPE,
+    /**
+     * Saludo, agradecimiento o mensaje sin una necesidad concreta ("hola",
+     * "gracias", "ok", "???"). Se responde y se ofrecen sugerencias, pero no
+     * es una consulta: si contara, cada saludo sumaria una consulta resuelta
+     * e inflaria el NCA. Si despues pregunta algo, esa pregunta si cuenta.
+     */
+    GREETING
 }

@@ -32,6 +32,7 @@ public class SecurityConfig {
             "/api/v1/auth/**",
             "/api/v1/chatbot/webhook/**",
             "/api/v1/chatbot/mensaje",
+            "/api/v1/chatbot/sugerencias",
             "/api/v1/chatbot/escalar",
             "/api/v1/chatbot/consultas/*/valoracion",
             "/api/v1/devices/webhook/**",
