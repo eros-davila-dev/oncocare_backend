@@ -77,6 +77,12 @@ public class PacienteJpaEntity {
     @Column(name = "contacto_emergencia_telefono")
     private String contactoEmergenciaTelefono;
 
+    @Column(name = "contacto_emergencia_email", length = 150)
+    private String contactoEmergenciaEmail;
+
+    @Column(name = "contacto_recibe_recordatorios", nullable = false)
+    private boolean contactoRecibeRecordatorios;
+
     @Column(nullable = false)
     private boolean activo;
 

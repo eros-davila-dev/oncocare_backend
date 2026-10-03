@@ -27,6 +27,7 @@ public class RegistrarPacienteUseCase {
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA')")
     @Transactional
     public Paciente ejecutar(Paciente paciente, Long medicionId, Long usuarioEjecutorId, String ipOrigen) {
+        paciente.validarDatosDeContacto();
         if (pacienteRepositoryPort.existePorDocumento(paciente.getDocumentoIdentidad())) {
             throw new ConflictoDeNegocioException(
                     "Ya existe un paciente registrado con el documento de identidad: " + paciente.getDocumentoIdentidad());

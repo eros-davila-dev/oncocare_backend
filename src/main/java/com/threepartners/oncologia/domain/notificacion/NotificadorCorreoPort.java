@@ -13,5 +13,13 @@ public interface NotificadorCorreoPort {
      * @param nombre nombre a mostrar en el saludo (solo el nombre de pila se usa)
      * @param enlace URL de accion (verificar, restablecer, ingresar)
      */
-    void enviar(TipoCorreo tipo, String email, String nombre, String enlace);
+    default void enviar(TipoCorreo tipo, String email, String nombre, String enlace) {
+        enviar(tipo, email, nombre, enlace, java.util.Map.of());
+    }
+
+    /**
+     * @param enlace URL de accion; vacio = correo sin boton
+     * @param datos  valores propios del tipo (fecha y hora de un recordatorio)
+     */
+    void enviar(TipoCorreo tipo, String email, String nombre, String enlace, java.util.Map<String, String> datos);
 }

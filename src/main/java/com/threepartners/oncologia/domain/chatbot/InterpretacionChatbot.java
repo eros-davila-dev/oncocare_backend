@@ -1,5 +1,7 @@
 package com.threepartners.oncologia.domain.chatbot;
 
+import com.threepartners.oncologia.domain.estudio.CategoriaConsulta;
+
 import java.util.Map;
 
 /**
@@ -14,8 +16,20 @@ public record InterpretacionChatbot(
         Intencion intencion,
         Map<String, String> entidades,
         boolean listoParaEjecutar,
-        String respuestaSugerida
+        String respuestaSugerida,
+        CategoriaConsulta categoria,
+        boolean respuestaConInformacionOficial
 ) {
+
+    /**
+     * Sin categoria y con la respuesta tomada como oficial: lo que usan las
+     * acciones sobre citas (el texto lo reemplaza el backend con datos reales)
+     * y el modo degradado.
+     */
+    public InterpretacionChatbot(Intencion intencion, Map<String, String> entidades, boolean listoParaEjecutar,
+                                 String respuestaSugerida) {
+        this(intencion, entidades, listoParaEjecutar, respuestaSugerida, null, true);
+    }
 
     public String entidad(String clave) {
         String valor = entidades.get(clave);

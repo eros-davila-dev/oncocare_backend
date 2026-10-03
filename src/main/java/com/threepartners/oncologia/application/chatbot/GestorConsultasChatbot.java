@@ -3,6 +3,7 @@ package com.threepartners.oncologia.application.chatbot;
 import com.threepartners.oncologia.domain.chatbot.Intencion;
 import com.threepartners.oncologia.domain.chatbot.ResultadoAccion;
 import com.threepartners.oncologia.domain.estudio.CanalConsulta;
+import com.threepartners.oncologia.domain.estudio.CategoriaConsulta;
 import com.threepartners.oncologia.domain.estudio.Consulta;
 import com.threepartners.oncologia.domain.estudio.ConsultaRepositoryPort;
 import com.threepartners.oncologia.domain.estudio.ResultadoConsulta;
@@ -48,6 +49,13 @@ public class GestorConsultasChatbot {
 
     public Consulta registrarTurno(String sesionId, CanalConsulta canal, Long pacienteId, Intencion intencion,
                                    ResultadoAccion resultado, String mensaje, Instant inicioTurno) {
+        return registrarTurno(sesionId, canal, pacienteId, intencion, resultado, mensaje, inicioTurno, null);
+    }
+
+    /** @param categoria categoria de la ficha de consultas que detecto el modelo (null si no la dio) */
+    public Consulta registrarTurno(String sesionId, CanalConsulta canal, Long pacienteId, Intencion intencion,
+                                   ResultadoAccion resultado, String mensaje, Instant inicioTurno,
+                                   CategoriaConsulta categoria) {
         Instant ahora = clock.instant();
         Optional<Consulta> ultima = consultaRepositoryPort.buscarUltimaPorSesion(sesionId);
 
@@ -71,6 +79,9 @@ public class GestorConsultasChatbot {
                 consultaRepositoryPort.guardar(abandonada);
             });
             consulta = Consulta.abrir(canal, sesionId, pacienteId, intencion.name(), resumen(mensaje), inicioTurno, ahora);
+        }
+        if (consulta.getCategoria() == null) {
+            consulta.setCategoria(categoria != null ? categoria : categoriaPorIntencion(intencion));
         }
 
         aplicar(consulta, resultado, ahora);
@@ -167,5 +178,14 @@ public class GestorConsultasChatbot {
     private static String resumen(String mensaje) {
         String limpio = mensaje == null ? "" : mensaje.strip();
         return limpio.length() <= LONGITUD_RESUMEN ? limpio : limpio.substring(0, LONGITUD_RESUMEN);
+    }
+
+    /** Si el modelo no dio categoria: las acciones sobre citas son CITAS; lo demas, OTRO. */
+    private static CategoriaConsulta categoriaPorIntencion(Intencion intencion) {
+        return switch (intencion) {
+            case BOOK_APPOINTMENT, CHECK_APPOINTMENT, RESCHEDULE_APPOINTMENT, CANCEL_APPOINTMENT, CONFIRM_APPOINTMENT -> CategoriaConsulta.CITAS;
+            case REGISTER_PATIENT -> CategoriaConsulta.REQUISITOS;
+            default -> CategoriaConsulta.OTRO;
+        };
     }
 }

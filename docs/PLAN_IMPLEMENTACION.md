@@ -130,6 +130,7 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 - [x] Chatbot por Telegram: consultar, confirmar y cancelar; agendar/reprogramar se derivan a recepción; chat no vinculado → preguntas generales + invitación a vincularse. Valoración 👍/👎, `/persona` y `/stop`.
 - [x] Agenda: lista de llamadas de recordatorio y etiqueta «sin Telegram».
 - [x] Workflows `telegram-router`, `recordatorios-telegram`, `alertas-personal` y `error-workflow` (con Telegram) + `n8n/README.md` con contrato y puesta en marcha. Se retiró el workflow de WhatsApp.
+- [x] **Recordatorios por correo** (migración `V11__recordatorios_correo_referido.sql`): canal `CORREO` a las 72 h y 24 h, sumado al canal principal (Telegram o llamada); lo envía el backend por el outbox, sin n8n. Copia al **referido** (el contacto de emergencia, ahora con correo) solo si el paciente lo autoriza (casilla desmarcada por defecto, Ley 29733). El correo del paciente y el del referido son obligatorios al registrar o editar (regla en `Paciente.validarDatosDeContacto`; los pacientes antiguos se completan al editarlos). **Decisión a revisar con el asesor**: añadir un canal cambia la intervención de H2 (TNS) y los campos obligatorios nuevos alargan el registro (TPR, H1); conviene fijarlo antes del postest.
 - [ ] **Pendiente del usuario**: crear el bot en @BotFather, túnel/dominio HTTPS, importar y activar los workflows en n8n y probarlos con un teléfono real (los JSON no se probaron contra una instancia viva de n8n).
 
 **Verificación**: 115 tests de backend (incluye el ciclo completo de recordatorios contra PostgreSQL con reloj controlado), build y tests del frontend, y prueba de humo HTTP que simula a n8n (vinculación, recordatorio, botón, llamadas, chatbot, `/persona`, `/stop`). Corregido además un bug previo: el listado de citas y de tratamientos fallaba en PostgreSQL con algunos filtros nulos.
@@ -165,15 +166,24 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 - [x] Respaldo diario de las bases `oncologia` y `n8n` con retención, scripts de restauración y de simulacro, y guía `docs/OPERACION.md`.
 - [x] Contraseña semilla: en `prod` el backend no arranca si el admin la conserva; `ADMIN_PASSWORD_INICIAL` la reemplaza una vez (auditado).
 - [x] Correo transaccional en el backend (verificación, restablecer contraseña y bienvenida al crear usuario) por la API de correo, con SMTP como respaldo opcional y entrega por el outbox. Probado contra el proveedor real. `REGISTRO_PACIENTES_HABILITADO=true` en los `.env` locales.
+- [x] *Configuración > Asistente IA* (solo ADMIN): clave de Gemini cifrada en la base (AES-GCM, `APP_CLAVE_CIFRADO`, migración `V10__configuracion_gemini.sql`), modelos en orden de preferencia, lista de modelos de la clave, prueba de cada modelo y estado de la rotación (qué modelo está en pausa y hasta cuándo). Lo de la intranet tiene prioridad sobre las variables de entorno; cambiarlo no requiere reiniciar y queda en la auditoría (sin la clave).
 - [ ] **Pendiente del usuario**: servidor, DNS, `.env` de producción, primer despliegue y copia de los respaldos fuera del servidor (ver `docs/OPERACION.md`).
 
 **Verificación**: 147 tests de backend (outbox contra PostgreSQL: rollback, reclamo sin duplicados, reintentos con reloj controlado, instancia caída y purga; caché con rollback; rate limit con Redis simulado; contraseña semilla) y 14 de frontend. Backend real con el perfil `prod`: se niega a arrancar con la contraseña semilla; con `ADMIN_PASSWORD_INICIAL`, la reemplaza; actuator solo en el puerto interno; Swagger 404; un aviso escalado con n8n caído se reintenta y llega cuando n8n vuelve; el 11.º login en un minuto da 429; el 100 % de los logs es JSON y sin contraseñas. `docker compose config` valida el compose de producción (y falla con mensaje claro si falta un secreto). Restauración probada con `pg_dump --clean --if-exists --no-owner` sobre una base vacía y sobre una existente: los conteos coinciden y los triggers de solo inserción se conservan. **No probado**: el despliegue con Docker (el daemon no estaba disponible), Caddy/TLS contra dominios reales, ni Redis real (cubierto con dobles).
+
+### Fase 7b — Alineación con la tesis v8 (03/10/2026) — ✅ completada (código)
+- [x] La tesis v8 cambió el diseño: 13 sesiones L-M-V por etapa, grupos independientes (t / U de Mann-Whitney). El pretest es el Instrumento validado por la fundación; el postest se recolecta de nuevo con el sistema (los datos de postest del Instrumento v7 no salían del sistema).
+- [x] Recolección por sesión: `RecoleccionSesiones` (dominio), `RecoleccionEstudioJdbcAdapter`, `GET /estudio/recoleccion`, `/detalle` y `/exportar.xlsx` (hojas del Instrumento: TPR_POST, Ausentismo_POST, Consultas_POST, Sesiones, SPSS_Independientes). Pantalla Estudio > Recolección por sesión y resumen en el dashboard.
+- [x] NCA v8 (migración `V12__consulta_categoria_primer_contacto.sql`): categoría de la ficha por consulta, `derivada` y `reabierta`; intención `OUT_OF_SCOPE` (no se registra como consulta); el backend deriva toda respuesta general que no salga de la información oficial.
+- [x] TPR v8: solo `REGISTRO_PACIENTE` por el personal (INTRANET; MANUAL para capturas). Días de sesión configurables (`ESTUDIO_DIAS_SESION`).
+- [x] Recordatorios por correo detrás de `RECORDATORIOS_CORREO_HABILITADO` (apagado: la intervención de la tesis es Telegram).
+- [ ] **Pendiente del usuario**: ver `Descargas/Recomendaciones_sistema_postest.txt` (Telegram, preguntas frecuentes, fechas reales del postest, capacitación, ficha de verificación).
 
 ### Fase 8 — Piloto (postest) y cierre (según cronograma de la tesis)
 - [ ] Capacitación al personal y a los pacientes (vinculación de Telegram) — se apoya en TAM (utilidad y facilidad de uso percibidas).
 - [ ] Cerrar fase PRETEST, abrir POSTEST con fechas fijas.
 - [ ] Monitoreo semanal de los indicadores y de la calidad del dato (mediciones sospechosas, citas sin desenlace, consultas sin cerrar).
-- [ ] Exportar, analizar en SPSS (Shapiro-Wilk, Wilcoxon) y redactar Resultados/Discusión.
+- [ ] Exportar (Estudio > Recolección por sesión), analizar en SPSS (Shapiro-Wilk, t o U de Mann-Whitney, `Analisis_SPSS_opcionB.sps`) y redactar Resultados/Discusión.
 
 ## 5. Impacto en el documento de tesis (revisar con el asesor)
 

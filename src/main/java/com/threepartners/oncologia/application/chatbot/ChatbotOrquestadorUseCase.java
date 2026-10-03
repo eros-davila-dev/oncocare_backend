@@ -12,6 +12,7 @@ import com.threepartners.oncologia.domain.chatbot.ContextoUsuarioChatbot;
 import com.threepartners.oncologia.domain.chatbot.ConversacionChatbot;
 import com.threepartners.oncologia.domain.chatbot.ConversacionChatbotRepositoryPort;
 import com.threepartners.oncologia.domain.chatbot.GeminiPort;
+import com.threepartners.oncologia.domain.chatbot.Intencion;
 import com.threepartners.oncologia.domain.chatbot.InterpretacionChatbot;
 import com.threepartners.oncologia.domain.chatbot.PreguntaFrecuenteRepositoryPort;
 import com.threepartners.oncologia.domain.chatbot.RespuestaAccion;
@@ -137,13 +138,16 @@ public class ChatbotOrquestadorUseCase {
         RespuestaAccion respuesta = ejecutor.apply(interpretacion);
 
         CanalConsulta canalEfectivo = canal != null ? canal : CanalConsulta.CHATBOT_WEB;
-        Consulta consulta = gestorConsultas.registrarTurno(sesionId, canalEfectivo, paciente != null ? paciente.getId() : null,
-                interpretacion.intencion(), respuesta.resultado(), mensajeUsuario, inicioTurno);
+        // Un mensaje fuera de alcance se responde pero no es una consulta: no entra al NCA.
+        Consulta consulta = interpretacion.intencion() == Intencion.OUT_OF_SCOPE ? null
+                : gestorConsultas.registrarTurno(sesionId, canalEfectivo, paciente != null ? paciente.getId() : null,
+                        interpretacion.intencion(), respuesta.resultado(), mensajeUsuario, inicioTurno,
+                        interpretacion.categoria());
 
         conversacionChatbotRepositoryPort.guardar(ConversacionChatbot.builder()
                 .pacienteId(paciente != null ? paciente.getId() : null)
                 .sesionId(sesionId)
-                .consultaId(consulta.getId())
+                .consultaId(consulta != null ? consulta.getId() : null)
                 .mensajeUsuario(mensajeUsuario)
                 .respuestaBot(respuesta.texto())
                 .intencionDetectada(interpretacion.intencion().name())
@@ -151,7 +155,8 @@ public class ChatbotOrquestadorUseCase {
                 .fecha(clock.instant())
                 .build());
 
-        return new RespuestaChatbot(respuesta.texto(), consulta.getId(), consulta.getResultado());
+        return consulta == null ? new RespuestaChatbot(respuesta.texto(), null, null)
+                : new RespuestaChatbot(respuesta.texto(), consulta.getId(), consulta.getResultado());
     }
 
     private Paciente resolverPaciente(Long usuarioAutenticadoId, Rol rolAutenticado) {
@@ -174,7 +179,8 @@ public class ChatbotOrquestadorUseCase {
 
     private RespuestaAccion ejecutarAccion(InterpretacionChatbot interpretacion, Paciente paciente, Long usuarioAutenticadoId, Rol rolAutenticado, String ipOrigen) {
         return switch (interpretacion.intencion()) {
-            case GENERAL_QUERY, HELP -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
+            case GENERAL_QUERY, HELP -> informativa(interpretacion);
+            case OUT_OF_SCOPE -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
             case ESCALATE_TO_STAFF -> new RespuestaAccion(interpretacion.respuestaSugerida(), ESCALAR);
             case REGISTER_PATIENT -> registroProperties.pacientesHabilitado()
                     ? new RespuestaAccion("Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
@@ -195,7 +201,8 @@ public class ChatbotOrquestadorUseCase {
      */
     private RespuestaAccion ejecutarAccionTelegram(InterpretacionChatbot interpretacion, Paciente paciente) {
         return switch (interpretacion.intencion()) {
-            case GENERAL_QUERY, HELP -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
+            case GENERAL_QUERY, HELP -> informativa(interpretacion);
+            case OUT_OF_SCOPE -> new RespuestaAccion(interpretacion.respuestaSugerida(), INFORMATIVA);
             case ESCALATE_TO_STAFF -> new RespuestaAccion(interpretacion.respuestaSugerida(), ESCALAR);
             case REGISTER_PATIENT -> new RespuestaAccion("Puedes crear tu cuenta de paciente en " + frontendProperties.baseUrl()
                     + "/auth/registro o pedir ayuda en recepcion.", INFORMATIVA);
@@ -210,6 +217,16 @@ public class ChatbotOrquestadorUseCase {
                 }
             }
         };
+    }
+
+    /**
+     * La regla "si no esta en la informacion oficial, se deriva" la aplica el
+     * backend: no basta con pedirsela al modelo. Una respuesta sin respaldo
+     * no resuelve la consulta del paciente (NCA, tesis v8).
+     */
+    private static RespuestaAccion informativa(InterpretacionChatbot interpretacion) {
+        return new RespuestaAccion(interpretacion.respuestaSugerida(),
+                interpretacion.respuestaConInformacionOficial() ? INFORMATIVA : ESCALAR);
     }
 
     private RespuestaAccion accionSobreCitaTelegram(InterpretacionChatbot interpretacion, Paciente paciente) {

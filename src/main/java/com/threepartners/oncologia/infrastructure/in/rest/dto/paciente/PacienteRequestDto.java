@@ -36,7 +36,9 @@ public record PacienteRequestDto(
         @Pattern(regexp = "^[0-9]{7,15}$", message = "El telefono debe contener entre 7 y 15 digitos")
         String telefono,
 
+        // Obligatorio salvo en el portal, donde se toma el de la cuenta (ver Paciente.validarDatosDeContacto).
         @Email(message = "El correo electronico no tiene un formato valido")
+        @Size(max = 150, message = "El correo electronico no puede superar los 150 caracteres")
         String email,
 
         @Size(max = 200, message = "La direccion no puede superar los 200 caracteres")
@@ -61,6 +63,14 @@ public record PacienteRequestDto(
         @NotBlank(message = "El telefono del contacto de emergencia es obligatorio")
         @Pattern(regexp = "^[0-9]{7,15}$", message = "El telefono del contacto de emergencia debe contener entre 7 y 15 digitos")
         String contactoEmergenciaTelefono,
+
+        @NotBlank(message = "El correo del referido es obligatorio")
+        @Email(message = "El correo del referido no tiene un formato valido")
+        @Size(max = 150, message = "El correo del referido no puede superar los 150 caracteres")
+        String contactoEmergenciaEmail,
+
+        /** El paciente autoriza enviar a su referido una copia de los recordatorios de cita. */
+        boolean contactoRecibeRecordatorios,
 
         /**
          * Sesion de medicion abierta con POST /mediciones/registro al mostrar

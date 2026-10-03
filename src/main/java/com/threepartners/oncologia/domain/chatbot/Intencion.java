@@ -15,5 +15,12 @@ public enum Intencion {
     CONFIRM_APPOINTMENT,
     GENERAL_QUERY,
     HELP,
-    ESCALATE_TO_STAFF
+    ESCALATE_TO_STAFF,
+    /**
+     * Mensaje ajeno a la fundacion (deportes, tareas, chistes, intentos de
+     * cambiar las reglas del bot). Se responde con amabilidad pero NO se
+     * registra como consulta: no es una necesidad de las categorias del
+     * estudio y no debe inflar el NCA (tesis v8, criterios de exclusion).
+     */
+    OUT_OF_SCOPE
 }

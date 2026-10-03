@@ -84,7 +84,8 @@ class FlujoRecordatoriosIntegracionTest extends PostgresIntegracionTest {
 
         var gestor = new GestorConsultasChatbot(consultas, (ruta, payload) -> { }, reloj);
         var acciones = new AccionesCitaPacienteService(citas, eventos, reloj);
-        programar = new ProgramarRecordatoriosUseCase(citas, pacientes, recordatorios, reloj);
+        programar = new ProgramarRecordatoriosUseCase(citas, pacientes, recordatorios,
+                new com.threepartners.oncologia.config.RecordatoriosProperties(false), reloj);
         entregar = new EntregarRecordatoriosUseCase(recordatorios, citas, pacientes, reloj);
         responder = new ResponderRecordatorioUseCase(recordatorios, pacientes, acciones, gestor,
                 new FrontendProperties("https://portal.test"), reloj);

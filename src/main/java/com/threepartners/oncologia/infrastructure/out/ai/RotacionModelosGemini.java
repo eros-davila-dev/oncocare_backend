@@ -2,6 +2,7 @@ package com.threepartners.oncologia.infrastructure.out.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.threepartners.oncologia.domain.chatbot.EstadoModeloGemini;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -47,6 +48,7 @@ public class RotacionModelosGemini {
     private static final Pattern SEGUNDOS = Pattern.compile("(\\d+(?:\\.\\d+)?)s");
 
     private final Map<String, Instant> apartadosHasta = new ConcurrentHashMap<>();
+    private final Map<String, String> motivos = new ConcurrentHashMap<>();
     private final Map<String, Integer> saturacionesSeguidas = new ConcurrentHashMap<>();
     private final Clock clock;
     private final ObjectMapper objectMapper;
@@ -65,6 +67,25 @@ public class RotacionModelosGemini {
                     return hasta == null || !ahora.isBefore(hasta);
                 })
                 .toList();
+    }
+
+    /** Para la pantalla del administrador: que modelos estan apartados, hasta cuando y por que. */
+    public List<EstadoModeloGemini> estado(List<String> modelos) {
+        Instant ahora = clock.instant();
+        return modelos.stream().map(m -> {
+            Instant hasta = apartadosHasta.get(m);
+            boolean disponible = hasta == null || !ahora.isBefore(hasta);
+            return disponible ? new EstadoModeloGemini(m, true, null, null)
+                    : new EstadoModeloGemini(m, false, hasta, motivos.get(m));
+        }).toList();
+    }
+
+    /** Otra clave tiene otra cuota: lo aprendido con la anterior ya no aplica. */
+    public void reiniciar() {
+        apartadosHasta.clear();
+        motivos.clear();
+        saturacionesSeguidas.clear();
+        log.info("Gemini: se reinicio la rotacion de modelos (cambio la configuracion)");
     }
 
     /** Respuesta 429: aparta el modelo por un minuto o hasta el reinicio diario. */
@@ -100,6 +121,7 @@ public class RotacionModelosGemini {
 
     private void apartar(String modelo, Instant hasta, String motivo) {
         apartadosHasta.put(modelo, hasta);
+        motivos.put(modelo, motivo);
         log.warn("Gemini: el modelo {} {}; se usa el siguiente hasta {}", modelo, motivo, hasta);
     }
 

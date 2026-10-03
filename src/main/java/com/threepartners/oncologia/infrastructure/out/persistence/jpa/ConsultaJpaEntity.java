@@ -1,5 +1,7 @@
 package com.threepartners.oncologia.infrastructure.out.persistence.jpa;
 
+import com.threepartners.oncologia.domain.estudio.CategoriaConsulta;
+
 import com.threepartners.oncologia.domain.estudio.CanalConsulta;
 import com.threepartners.oncologia.domain.estudio.ResultadoConsulta;
 import jakarta.persistence.Column;
@@ -79,4 +81,14 @@ public class ConsultaJpaEntity {
 
     @Column(name = "nota_resolucion", columnDefinition = "TEXT")
     private String notaResolucion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private CategoriaConsulta categoria;
+
+    @Column(nullable = false)
+    private boolean derivada;
+
+    @Column(nullable = false)
+    private boolean reabierta;
 }

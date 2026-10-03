@@ -27,9 +27,10 @@ public class EncolarCorreo implements NotificadorCorreoPort {
 
     @Override
     @Transactional
-    public void enviar(TipoCorreo tipo, String email, String nombre, String enlace) {
+    public void enviar(TipoCorreo tipo, String email, String nombre, String enlace, Map<String, String> datos) {
         eventoSalienteRepositoryPort.encolar(PREFIJO_DESTINO + tipo.name(),
-                Map.of("email", email, "nombre", nombre != null ? nombre : "", "enlace", enlace),
+                Map.of("email", email, "nombre", nombre != null ? nombre : "", "enlace", enlace != null ? enlace : "",
+                        "datos", datos != null ? datos : Map.of()),
                 clock.instant());
     }
 }

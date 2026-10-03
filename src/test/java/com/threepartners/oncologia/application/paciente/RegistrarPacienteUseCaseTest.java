@@ -43,7 +43,8 @@ class RegistrarPacienteUseCaseTest {
 
     @Test
     void registraElPacienteCuandoElDocumentoEsUnico() {
-        Paciente paciente = Paciente.builder().documentoIdentidad("12345678").nombres("Ana").apellidos("Perez").build();
+        Paciente paciente = Paciente.builder().documentoIdentidad("12345678").nombres("Ana").apellidos("Perez")
+                .email("ana@correo.pe").contactoEmergenciaEmail("hija@correo.pe").build();
         when(pacienteRepositoryPort.existePorDocumento("12345678")).thenReturn(false);
         when(pacienteRepositoryPort.guardar(any(Paciente.class))).thenAnswer(inv -> {
             Paciente p = inv.getArgument(0);
@@ -60,10 +61,28 @@ class RegistrarPacienteUseCaseTest {
 
     @Test
     void rechazaElRegistroCuandoElDocumentoYaExiste() {
-        Paciente paciente = Paciente.builder().documentoIdentidad("12345678").build();
+        Paciente paciente = Paciente.builder().documentoIdentidad("12345678")
+                .email("ana@correo.pe").contactoEmergenciaEmail("hija@correo.pe").build();
         when(pacienteRepositoryPort.existePorDocumento("12345678")).thenReturn(true);
 
         assertThatThrownBy(() -> useCase.ejecutar(paciente, null, 1L, "127.0.0.1"))
                 .isInstanceOf(ConflictoDeNegocioException.class);
+    }
+
+    @Test
+    void exigeElCorreoDelPacienteYElDelReferido() {
+        Paciente sinCorreo = Paciente.builder().documentoIdentidad("12345678").contactoEmergenciaEmail("hija@correo.pe").build();
+        Paciente sinReferido = Paciente.builder().documentoIdentidad("12345678").email("ana@correo.pe").build();
+        Paciente mismoCorreo = Paciente.builder().documentoIdentidad("12345678")
+                .email("ana@correo.pe").contactoEmergenciaEmail("ANA@correo.pe").build();
+
+        assertThatThrownBy(() -> useCase.ejecutar(sinCorreo, null, 1L, null))
+                .isInstanceOf(com.threepartners.oncologia.domain.shared.exception.ValidacionDeNegocioException.class)
+                .hasMessageContaining("paciente");
+        assertThatThrownBy(() -> useCase.ejecutar(sinReferido, null, 1L, null))
+                .hasMessageContaining("referido");
+        assertThatThrownBy(() -> useCase.ejecutar(mismoCorreo, null, 1L, null))
+                .hasMessageContaining("distinto");
+        org.mockito.Mockito.verify(pacienteRepositoryPort, org.mockito.Mockito.never()).guardar(any());
     }
 }

@@ -106,6 +106,34 @@ class CorreoTest {
     }
 
     @Test
+    void elRecordatorioLlevaFechaYHoraYAlReferidoNoLeMuestraBoton() {
+        var datos = java.util.Map.of("fecha", "viernes 9 de octubre", "hora", "09:00", "paciente", "<b>Ana</b> Maria");
+
+        MensajeCorreo alPaciente = PlantillasCorreo.renderizar(TipoCorreo.RECORDATORIO_CITA, "ana@correo.pe", "Ana Maria",
+                "https://portal/mis-citas", null, datos);
+        assertThat(alPaciente.asunto()).contains("viernes 9 de octubre").contains("09:00");
+        assertThat(alPaciente.html()).contains("Hola, Ana:").contains("https://portal/mis-citas").contains("Mis citas");
+
+        MensajeCorreo alReferido = PlantillasCorreo.renderizar(TipoCorreo.RECORDATORIO_CITA_REFERIDO, "hija@correo.pe",
+                "Lucia Perez", "", null, datos);
+        assertThat(alReferido.html())
+                .contains("Hola, Lucia:")
+                .contains("&lt;b&gt;Ana&lt;/b&gt;") // solo el nombre de pila, escapado: nunca HTML del usuario
+                .doesNotContain("<b>Ana</b>")
+                .doesNotContain("Maria")
+                .doesNotContain("href=\"\"")
+                .doesNotContain("El botón no funciona");
+    }
+
+    @Test
+    void sinEnlaceElRecordatorioAlPacienteIndicaComunicarseConRecepcion() {
+        MensajeCorreo m = PlantillasCorreo.renderizar(TipoCorreo.RECORDATORIO_CITA, "ana@correo.pe", "Ana", "", null,
+                java.util.Map.of("fecha", "viernes 9 de octubre", "hora", "09:00"));
+
+        assertThat(m.html()).contains("recepción").doesNotContain("Ver mis citas</a>");
+    }
+
+    @Test
     void elOutboxEnviaLosCorreosAlServicioDeCorreoYLoDemasAN8n() {
         N8nNotificationAdapter n8n = mock(N8nNotificationAdapter.class);
         List<MensajeCorreo> enviados = new ArrayList<>();

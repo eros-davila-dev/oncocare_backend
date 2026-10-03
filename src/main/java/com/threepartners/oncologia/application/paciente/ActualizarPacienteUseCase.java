@@ -53,6 +53,9 @@ public class ActualizarPacienteUseCase {
         existente.setConvenioSeguro(datos.getConvenioSeguro());
         existente.setContactoEmergenciaNombre(datos.getContactoEmergenciaNombre());
         existente.setContactoEmergenciaTelefono(datos.getContactoEmergenciaTelefono());
+        existente.setContactoEmergenciaEmail(datos.getContactoEmergenciaEmail());
+        existente.setContactoRecibeRecordatorios(datos.isContactoRecibeRecordatorios());
+        existente.validarDatosDeContacto();
 
         Paciente actualizado = pacienteRepositoryPort.guardar(existente);
         cerrarMedicionRegistroService.cerrar(medicionId, TipoMedicion.ACTUALIZACION_PACIENTE, usuarioEjecutorId,

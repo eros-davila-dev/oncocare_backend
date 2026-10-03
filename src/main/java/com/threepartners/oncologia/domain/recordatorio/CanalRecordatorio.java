@@ -4,5 +4,7 @@ public enum CanalRecordatorio {
     /** Mensaje con botones enviado por n8n al chat vinculado del paciente. */
     TELEGRAM,
     /** El paciente no tiene Telegram: recepcion lo llama (lista en la agenda). */
-    LLAMADA
+    LLAMADA,
+    /** Correo al paciente (y copia al referido si lo autorizo); lo envia el backend, no n8n. */
+    CORREO
 }

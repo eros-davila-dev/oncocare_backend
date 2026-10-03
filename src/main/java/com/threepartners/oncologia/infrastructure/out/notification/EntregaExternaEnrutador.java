@@ -29,10 +29,24 @@ public class EntregaExternaEnrutador implements EntregaExternaPort {
         if (destino.startsWith(EncolarCorreo.PREFIJO_DESTINO)) {
             TipoCorreo tipo = TipoCorreo.valueOf(destino.substring(EncolarCorreo.PREFIJO_DESTINO.length()));
             servicioCorreo.enviar(PlantillasCorreo.renderizar(tipo, texto(payload, "email"),
-                    texto(payload, "nombre"), texto(payload, "enlace"), correoProperties.logoUrl()));
+                    texto(payload, "nombre"), texto(payload, "enlace"), correoProperties.logoUrl(), datos(payload)));
             return;
         }
         n8n.entregar(destino, payload);
+    }
+
+    /** Datos propios del tipo de correo (fecha y hora de un recordatorio); vacio en los demas. */
+    private static Map<String, String> datos(Map<String, Object> payload) {
+        if (!(payload.get("datos") instanceof Map<?, ?> crudo)) {
+            return Map.of();
+        }
+        Map<String, String> datos = new java.util.HashMap<>();
+        crudo.forEach((k, v) -> {
+            if (k != null && v != null) {
+                datos.put(k.toString(), v.toString());
+            }
+        });
+        return datos;
     }
 
     private static String texto(Map<String, Object> payload, String clave) {

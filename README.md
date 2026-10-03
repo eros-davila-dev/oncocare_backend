@@ -104,6 +104,8 @@ Gemini solo clasifica el mensaje en una intencion cerrada (`Intencion.java`) y e
 
 Para activarlo, consigue una clave gratuita en <https://aistudio.google.com/apikey> y define `GEMINI_API_KEY` en `.env` (`GEMINI_MODEL` es opcional, por defecto `gemini-3.6-flash`). **Sin la clave el chatbot sigue funcionando** y responde en modo degradado ("no puedo procesar tu mensaje ahora, un miembro del equipo te ayudara"), nunca se cae la peticion ni se expone un error tecnico.
 
+También se puede configurar sin tocar el servidor: el **administrador** entra a la intranet, *Configuración > Asistente IA*, pega la clave (se guarda cifrada con `APP_CLAVE_CIFRADO`), consulta los modelos que esa clave puede usar, los prueba y los ordena. El chatbot usa el primero disponible y, si agota su cuota o no responde, pasa al siguiente. Lo guardado en la intranet tiene prioridad sobre `GEMINI_API_KEY` / `GEMINI_MODEL` / `GEMINI_MODELS`, que quedan como respaldo.
+
 - **n8n + Telegram**: el backend decide que recordatorio enviar, a quien y cuando (72 h / 24 h / 2 h antes; llamada de recepcion si el paciente no vinculo Telegram); n8n solo entrega por Telegram y reporta el resultado. Los workflows estan en `n8n/workflows/`, listos para importar; ver `n8n/README.md` (crear el bot en @BotFather, credencial, secreto del webhook, tunel HTTPS). Los workflows de envio de correo del portal de autoservicio (verificacion de cuenta, recuperacion de contrasena) tampoco estan incluidos: requieren credenciales SMTP/proveedor de correo propias de la fundacion; el contrato exacto que el backend ya invoca esta documentado en `n8n/README.md`.
 
 ### Correo transaccional

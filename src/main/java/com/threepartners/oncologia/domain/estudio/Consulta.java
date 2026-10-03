@@ -44,6 +44,12 @@ public class Consulta {
     private int turnos = 1;
     private Instant ultimaActividadEn;
     private String notaResolucion;
+    /** Categoria de la ficha de consultas (Anexo 2); null en las capturadas antes de V12. */
+    private CategoriaConsulta categoria;
+    /** Paso al personal en algun momento: ya no es "resuelta en el primer contacto". */
+    private boolean derivada;
+    /** El usuario volvio a preguntar lo mismo tras la respuesta del bot. */
+    private boolean reabierta;
 
     /**
      * Ficha de registro del sistema del pretest: consulta recibida por
@@ -125,11 +131,21 @@ public class Consulta {
         }
         this.resultado = null;
         this.cerradaEn = null;
+        this.reabierta = true;
         registrarTurno(cuando);
     }
 
     public void escalar(Instant cuando) {
         cerrar(ResultadoConsulta.ESCALADA, null, cuando);
+        this.derivada = true;
+    }
+
+    /**
+     * Numerador del NCA de la tesis v8: resuelta por el chatbot en el primer
+     * contacto, sin derivacion y sin volver a preguntar lo mismo.
+     */
+    public boolean resueltaEnPrimerContacto() {
+        return resultado == ResultadoConsulta.RESUELTA_BOT && !derivada && !reabierta;
     }
 
     /**
