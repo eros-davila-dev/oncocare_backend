@@ -44,7 +44,7 @@ public class MetricasNegocio implements MeterBinder {
         Gauge.builder("oncologia.citas.sin.desenlace",
                         () -> contar("SELECT COUNT(*) FROM cita WHERE estado IN ('PROGRAMADA', 'CONFIRMADA') AND fecha < ?",
                                 LocalDate.now(clock.withZone(ZonaHoraria.LIMA))))
-                .description("Citas pasadas sin marcar atendida o no asistio (sesgan la TNS)")
+                .description("Citas pasadas sin marcar atendida o no asistio (sesgan la tasa de ausentismo)")
                 .register(registry);
         Gauge.builder("oncologia.mediciones.sospechosas",
                         () -> contar("SELECT COUNT(*) FROM medicion_registro WHERE sospechosa AND estado = 'COMPLETADA'"))
@@ -52,7 +52,7 @@ public class MetricasNegocio implements MeterBinder {
                 .register(registry);
         Gauge.builder("oncologia.recordatorios.fallidos",
                         () -> contar("SELECT COUNT(*) FROM recordatorio WHERE estado = 'FALLIDO'"))
-                .description("Recordatorios de Telegram que no se pudieron enviar (TNS)")
+                .description("Recordatorios de Telegram que no se pudieron enviar (afecta la tasa de ausentismo)")
                 .register(registry);
     }
 

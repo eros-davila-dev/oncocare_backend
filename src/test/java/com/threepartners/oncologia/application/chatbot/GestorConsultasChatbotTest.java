@@ -218,6 +218,11 @@ class GestorConsultasChatbotTest {
         }
 
         @Override
+        public Pagina<Consulta> listarPorPaciente(Long pacienteId, CriterioPaginacion criterio) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<Consulta> abiertasSinActividadAntesDe(Instant limite) {
             throw new UnsupportedOperationException();
         }

@@ -11,6 +11,7 @@ import com.threepartners.oncologia.domain.chatbot.Intencion;
 import com.threepartners.oncologia.domain.chatbot.InterpretacionChatbot;
 import com.threepartners.oncologia.domain.chatbot.PreguntaFrecuente;
 import com.threepartners.oncologia.domain.estudio.CategoriaConsulta;
+import com.threepartners.oncologia.config.InstitucionProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -43,7 +44,7 @@ import java.util.Map;
 public class GeminiRestClientAdapter implements GeminiPort {
 
     private static final String INSTRUCCION_SISTEMA = """
-            Eres el asistente virtual de la Fundacion Oncologica Three Partners (Lima, Peru).
+            Eres el asistente virtual de la {{institucion}} (Lima, Peru).
             Ayudas a pacientes con tareas administrativas: registro, agendamiento,
             confirmacion, reprogramacion y cancelacion de citas, y preguntas generales
             sobre el proceso de atencion.
@@ -121,6 +122,7 @@ public class GeminiRestClientAdapter implements GeminiPort {
     private final ObjectMapper objectMapper;
     private final RotacionModelosGemini rotacion;
     private final ResolutorConfiguracionGemini resolutor;
+    private final InstitucionProperties institucion;
     private volatile RestClient cliente;
 
     /** Cliente propio con los tiempos de Gemini (sin tocar el builder compartido). */
@@ -215,7 +217,8 @@ public class GeminiRestClientAdapter implements GeminiPort {
         ObjectNode raiz = objectMapper.createObjectNode();
 
         ObjectNode instruccionSistema = raiz.putObject("systemInstruction");
-        instruccionSistema.putArray("parts").addObject().put("text", INSTRUCCION_SISTEMA + "\n\n" + contextoComoTexto(contexto));
+        instruccionSistema.putArray("parts").addObject().put("text",
+                INSTRUCCION_SISTEMA.replace("{{institucion}}", institucion.nombre()) + "\n\n" + contextoComoTexto(contexto));
 
         var contents = raiz.putArray("contents");
         for (ConversacionChatbot turno : historial) {

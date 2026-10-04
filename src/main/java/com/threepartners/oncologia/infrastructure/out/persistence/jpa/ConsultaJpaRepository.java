@@ -17,6 +17,14 @@ public interface ConsultaJpaRepository extends JpaRepository<ConsultaJpaEntity, 
 
     Page<ConsultaJpaEntity> findByResultado(ResultadoConsulta resultado, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM ConsultaJpaEntity c
+            WHERE c.pacienteId = :pacienteId
+              AND (c.resultado IS NULL OR c.resultado <> com.threepartners.oncologia.domain.estudio.ResultadoConsulta.ANULADA)
+            """)
+    Page<ConsultaJpaEntity> findDelPaciente(@org.springframework.data.repository.query.Param("pacienteId") Long pacienteId,
+                                            Pageable pageable);
+
     List<ConsultaJpaEntity> findByResultadoIsNullAndUltimaActividadEnBefore(Instant limite);
 
     List<ConsultaJpaEntity> findByResultadoAndUltimaActividadEnBefore(ResultadoConsulta resultado, Instant limite);

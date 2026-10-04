@@ -74,7 +74,7 @@ public class GeneradorPlantillaFicha {
     private static List<String> instrucciones(TipoFicha ficha, List<String> columnas) {
         String titulo = switch (ficha) {
             case TIEMPOS -> "Instrumento 01 - Ficha de registro de tiempos (indicador TPR). Solo fechas del PRETEST.";
-            case ASISTENCIAS -> "Instrumento 02 - Ficha de registro de ausentismo (indicador TNS). Solo fechas del PRETEST.";
+            case ASISTENCIAS -> "Instrumento 02 - Ficha de registro de ausentismo (indicador TA). Solo fechas del PRETEST.";
             case CONSULTAS -> "Instrumento 03 - Ficha de registro del sistema (indicador NCA). Cualquier fase abierta.";
         };
         return List.of(

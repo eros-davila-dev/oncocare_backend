@@ -19,6 +19,9 @@ public interface ConsultaRepositoryPort {
     /** Bandeja del personal: consultas escaladas, las mas antiguas primero. */
     Pagina<Consulta> listarEscaladas(CriterioPaginacion criterio);
 
+    /** Consultas de un paciente, de la mas reciente a la mas antigua; sin las anuladas. */
+    Pagina<Consulta> listarPorPaciente(Long pacienteId, CriterioPaginacion criterio);
+
     /** Abiertas (aun a cargo del bot) sin actividad desde antes del limite: abandonadas. */
     List<Consulta> abiertasSinActividadAntesDe(Instant limite);
 

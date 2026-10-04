@@ -13,7 +13,7 @@
 	<artifactId>oncologia</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>oncologia</name>
-	<description>Sistema web de gestion de pacientes oncologicos - Fundacion Oncologica Three Partners</description>
+	<description>Sistema web de gestion de pacientes oncologicos - Fundacion Oncologica</description>
 
 	<properties>
 		<java.version>21</java.version>
