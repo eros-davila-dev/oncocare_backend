@@ -146,9 +146,11 @@ app:
     modelos: ${GEMINI_MODELS:}
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
     # Espera maxima por modelo y por mensaje; al superarla se prueba el siguiente
-    # modelo o, si se acabo el presupuesto, se deriva a una persona.
-    timeout-por-modelo: ${GEMINI_TIMEOUT_POR_MODELO:10s}
-    presupuesto-total: ${GEMINI_PRESUPUESTO_TOTAL:20s}
+    # modelo o, si se acabo el presupuesto, se deriva a una persona. El total
+    # debe quedar por debajo del timeout de n8n (20 s): con 6 s por modelo, un
+    # modelo colgado no consume todo el mensaje y los Flash-Lite alcanzan turno.
+    timeout-por-modelo: ${GEMINI_TIMEOUT_POR_MODELO:6s}
+    presupuesto-total: ${GEMINI_PRESUPUESTO_TOTAL:15s}
   device:
     mqtt:
       enabled: ${MQTT_ENABLED:false}

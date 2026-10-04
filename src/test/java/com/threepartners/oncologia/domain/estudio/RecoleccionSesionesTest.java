@@ -72,6 +72,8 @@ class RecoleccionSesionesTest {
         assertThat(lunes.resueltas()).isEqualTo(1);               // solo la del primer contacto sin derivar
         assertThat(lunes.ncaPct()).isEqualTo(25.0);
         assertThat(resumen.avisos().consultasAbiertas()).isEqualTo(1);
+        assertThat(resumen.citasConRecordatorio()).isEqualTo(3);      // la cancelada no cuenta en la cobertura
+        assertThat(resumen.coberturaRecordatorioPct()).isEqualTo(100.0);
         assertThat(resumen.avisos().eventosFueraDeSesion()).isEqualTo(1); // el registro del martes
     }
 

@@ -32,7 +32,8 @@ public class ConsultaController {
     @GetMapping("/bandeja")
     public PaginaResponseDto<ConsultaResponseDto> bandeja(@RequestParam(defaultValue = "0") int page,
                                                          @RequestParam(defaultValue = "20") int size) {
-        return PaginaResponseDto.de(bandejaConsultasUseCase.escaladas(CriterioPaginacion.de(page, size)), ConsultaResponseDto::de);
+        return PaginaResponseDto.de(bandejaConsultasUseCase.escaladas(CriterioPaginacion.de(page, size)),
+                e -> ConsultaResponseDto.deBandeja(e.consulta(), e.pacienteNombre(), e.pacienteTelefono()));
     }
 
     @GetMapping("/{id}/conversacion")

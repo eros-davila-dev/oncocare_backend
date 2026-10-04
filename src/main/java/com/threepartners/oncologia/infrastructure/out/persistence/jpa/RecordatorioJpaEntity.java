@@ -41,7 +41,7 @@ public class RecordatorioJpaEntity {
     private TipoRecordatorio tipo;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 15)
+    @Column(nullable = false, length = 20)
     private CanalRecordatorio canal;
 
     @Column(name = "programado_para", nullable = false)

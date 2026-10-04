@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.List;
+import java.util.Locale;
+import java.util.ArrayList;
 
 /**
  * Botones del recordatorio en Telegram: Confirmo / Reprogramar / Cancelar.
@@ -38,11 +41,28 @@ public class ResponderRecordatorioUseCase {
 
     @Transactional
     public String responder(Long chatId, Long recordatorioId, AccionRecordatorio accion) {
-        Paciente paciente = pacienteRepositoryPort.buscarPorTelegramChatId(chatId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Paciente vinculado", chatId));
         Recordatorio recordatorio = recordatorioRepositoryPort.buscarPorId(recordatorioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Recordatorio", recordatorioId));
-        Cita cita = accionesCita.citaDelPaciente(recordatorio.getCitaId(), paciente);
+        // El chat debe ser del paciente de la cita o de su referido vinculado; si no, no se revela nada.
+        List<Paciente> vinculados = new ArrayList<>();
+        pacienteRepositoryPort.buscarPorTelegramChatId(chatId).ifPresent(vinculados::add);
+        vinculados.addAll(pacienteRepositoryPort.listarPorTelegramReferido(chatId));
+        Cita cita = null;
+        Paciente paciente = null;
+        for (Paciente candidato : vinculados) {
+            try {
+                cita = accionesCita.citaDelPaciente(recordatorio.getCitaId(), candidato);
+                paciente = candidato;
+                break;
+            } catch (RecursoNoEncontradoException e) {
+                // la cita no es de este paciente: se prueba el siguiente
+            }
+        }
+        if (paciente == null) {
+            throw new RecursoNoEncontradoException("Paciente vinculado", chatId);
+        }
+        boolean esReferido = !chatId.equals(paciente.getTelegramChatId());
+        String suCita = esReferido ? "La cita de " + paciente.nombrePila() : "Tu cita";
 
         if (cita.esFinal()) {
             return "Esta cita ya no esta activa (" + cita.getEstado().name().toLowerCase().replace('_', ' ') + ").";
@@ -52,15 +72,17 @@ public class ResponderRecordatorioUseCase {
             case CONFIRMAR -> {
                 recordatorio.registrarRespuesta(RespuestaRecordatorio.CONFIRMO, clock.instant());
                 if (cita.getEstado() == EstadoCita.CONFIRMADA) {
-                    yield "Tu cita ya estaba confirmada. ¡Te esperamos!";
+                    yield suCita + " ya estaba confirmada. ¡Los esperamos!";
                 }
                 accionesCita.confirmar(cita, paciente);
-                yield "¡Gracias! Tu cita quedo confirmada. Te esperamos.";
+                yield "¡Gracias! " + suCita + " quedo confirmada. Los esperamos.";
             }
             case CANCELAR -> {
                 recordatorio.registrarRespuesta(RespuestaRecordatorio.CANCELO, clock.instant());
-                accionesCita.cancelar(cita, paciente, "Cancelada por el paciente desde Telegram");
-                yield "Listo, cancelamos tu cita. Gracias por avisarnos con tiempo; si necesitas una nueva, escribenos aqui.";
+                accionesCita.cancelar(cita, paciente, esReferido
+                        ? "Cancelada por el referido desde Telegram" : "Cancelada por el paciente desde Telegram");
+                yield "Listo, cancelamos " + suCita.toLowerCase(Locale.ROOT)
+                        + ". Gracias por avisarnos con tiempo; si necesitan una nueva, escribenos aqui.";
             }
             case REPROGRAMAR -> {
                 recordatorio.registrarRespuesta(RespuestaRecordatorio.PIDIO_REPROGRAMAR, clock.instant());

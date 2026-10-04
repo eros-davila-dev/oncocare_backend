@@ -16,6 +16,10 @@ public record PacienteResumen(
         String medicoTratanteNombre,
         Especialidad medicoTratanteEspecialidad,
         LocalDate ultimaCita,
-        LocalDate proximaCita
+        LocalDate proximaCita,
+        /** El paciente vinculo su Telegram (recibe recordatorios). */
+        boolean tieneTelegram,
+        /** Su referido vinculo su Telegram. */
+        boolean referidoTieneTelegram
 ) {
 }

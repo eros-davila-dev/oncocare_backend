@@ -113,6 +113,7 @@ services:
     environment:
       N8N_HOST: ${DOMINIO_N8N}
       N8N_PROTOCOL: https
+      N8N_WEBHOOK_URL: https://${DOMINIO_N8N}/
       WEBHOOK_URL: https://${DOMINIO_N8N}/
       N8N_PROXY_HOPS: 1
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Defina N8N_ENCRYPTION_KEY, estable, no cambiarla despues}

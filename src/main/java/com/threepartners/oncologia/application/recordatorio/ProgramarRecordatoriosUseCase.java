@@ -53,8 +53,16 @@ public class ProgramarRecordatoriosUseCase {
             if (paciente == null || !paciente.aceptaRecordatorios()) {
                 continue;
             }
-            CanalRecordatorio canal = paciente.tieneTelegram() ? CanalRecordatorio.TELEGRAM : CanalRecordatorio.LLAMADA;
-            creados += programar(cita, canal, ahora);
+            if (paciente.tieneTelegram()) {
+                creados += programar(cita, CanalRecordatorio.TELEGRAM, ahora);
+            }
+            if (paciente.referidoRecibeTelegram()) {
+                creados += programar(cita, CanalRecordatorio.TELEGRAM_REFERIDO, ahora);
+            }
+            // Recepcion llama solo si nadie (ni el paciente ni su referido) recibe el aviso por Telegram.
+            if (!paciente.tieneTelegram() && !paciente.referidoRecibeTelegram()) {
+                creados += programar(cita, CanalRecordatorio.LLAMADA, ahora);
+            }
             // El correo se suma al canal principal (no lo reemplaza): llega tambien al referido.
             if (recordatoriosProperties.correoHabilitado() && paciente.tieneEmail()) {
                 creados += programar(cita, CanalRecordatorio.CORREO, ahora);

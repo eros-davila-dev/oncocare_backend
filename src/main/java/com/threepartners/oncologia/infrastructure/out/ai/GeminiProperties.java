@@ -37,8 +37,11 @@ public record GeminiProperties(String apiKey, String model, List<String> modelos
                 : modelos.stream().filter(m -> m != null && !m.isBlank()).toList();
         modelos = configurados.isEmpty() ? MODELOS_POR_DEFECTO : configurados;
         // Un chat no puede hacer esperar al paciente: tope por modelo y por mensaje.
-        timeoutPorModelo = timeoutPorModelo != null ? timeoutPorModelo : Duration.ofSeconds(10);
-        presupuestoTotal = presupuestoTotal != null ? presupuestoTotal : Duration.ofSeconds(20);
+        // El total debe quedar holgado bajo el timeout de n8n (20 s, nodo
+        // "Preguntar al asistente"): si el backend responde despues, n8n ya
+        // corto, no envia nada y Telegram reintenta el mensaje.
+        timeoutPorModelo = timeoutPorModelo != null ? timeoutPorModelo : Duration.ofSeconds(6);
+        presupuestoTotal = presupuestoTotal != null ? presupuestoTotal : Duration.ofSeconds(15);
     }
 
     public GeminiProperties(String apiKey, String model, List<String> modelos, String baseUrl) {

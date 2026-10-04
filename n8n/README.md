@@ -18,6 +18,7 @@ Todas las llamadas llevan el header `X-Webhook-Secret` (= `N8N_WEBHOOK_SECRET`).
 | `GET /integraciones/recordatorios/pendientes?limite=25` | — | `[{recordatorioId, chatId, texto, fechaTexto, horaTexto, tipo}]` (el backend los marca EN_PROCESO; si no recibe resultado en 15 min, vuelven a la cola) |
 | `POST /integraciones/recordatorios/{id}/resultado` | `{enviado, mensajeExternoId?, error?}` | 204 (un fallo se reintenta hasta 3 veces) |
 | `POST /integraciones/telegram/vincular` | `{token, chatId}` | `{ok, mensaje}` |
+| `POST /integraciones/telegram/vincular-telefono` | `{chatId, fromId, contactoUsuarioId, telefono}` | `{ok, mensaje}` ("Compartir mi número": solo el número propio, solo chat privado; luego pide los 3 últimos dígitos del DNI, que llegan por `/telegram/mensaje`) |
 | `POST /integraciones/telegram/desvincular` | `{chatId}` | `{ok, mensaje}` |
 | `POST /integraciones/telegram/accion-cita` | `{chatId, recordatorioId, accion: CONFIRMAR\|CANCELAR\|REPROGRAMAR}` | `{ok, mensaje}` (verifica que la cita sea del paciente de ese chat) |
 | `POST /integraciones/telegram/mensaje` | `{chatId, texto}` | `{respuesta, consultaId, estadoConsulta}` |
@@ -71,6 +72,16 @@ Reinicia n8n después de cambiar `N8N_WEBHOOK_URL` (`docker compose up -d n8n`).
 2. **Recordatorio**: agenda una cita para dentro de 2 h 10 min. El job del backend la programa en ≤ 15 min y n8n la envía en ≤ 5 min después del momento programado. Pulsa **✅ Confirmo**: la cita debe quedar *Confirmada* en la agenda.
 3. **Chatbot**: escribe «¿cuándo es mi cita?» y luego una pregunta cuya respuesta esté en *Preguntas frecuentes*; valora con 👍/👎.
 4. **Alerta**: escribe `/persona`; el grupo del personal debe recibir el aviso y la consulta debe aparecer en la *Bandeja de consultas*.
+
+## Vinculación sin enlace personal (QR común)
+
+Un enlace personal enviado por mensaje puede parecerle una estafa a una persona mayor. Por eso hay un segundo camino, que también usa el acompañante:
+
+1. El paciente (o su referido) escanea el **QR común del bot** (el mismo para todos: afiche de recepción, guía impresa en `/recordatorios-telegram` del portal) y pulsa **Iniciar**.
+2. La bienvenida trae el botón de Telegram **«📱 Compartir mi número»** (`request_contact`). El router envía `message.contact` a `/vincular-telefono`.
+3. El backend busca el número (últimos 9 dígitos) entre los teléfonos de pacientes y de referidos autorizados, y pide los **3 últimos dígitos del DNI del paciente**. Con eso vincula al paciente y/o al referido.
+
+Casos cubiertos: contacto ajeno (se rechaza), grupos (solo chat privado), número reasignado por la operadora o celular compartido (lo resuelven los dígitos del DNI; 3 fallos = bloqueo de 30 min), referido no autorizado (se rechaza), `/stop` del referido (no apaga al paciente). Los recordatorios al referido usan el canal `TELEGRAM_REFERIDO` y su propio texto; sus botones Confirmo/Cancelar también funcionan.
 
 ## Contenido de los mensajes (Ley 29733)
 Los textos los arma el backend con **nombre de pila, fecha y hora**. Nunca diagnóstico, tratamiento, documento ni el texto de una consulta: un celular puede verlo otra persona. Las alertas al personal llevan solo el número de consulta.

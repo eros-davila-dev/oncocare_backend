@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Un bot de Telegram solo puede escribir a quien le inicio una conversacion.
@@ -89,16 +90,38 @@ public class VinculacionTelegramUseCase {
         return guardado;
     }
 
-    /** "/stop" en el bot o "Desvincular" en el portal: el paciente deja de recibir mensajes. */
+    /**
+     * "/stop" en el bot: ese chat deja de recibir mensajes, como paciente y como
+     * referido. No toca otros chats (el /stop del referido no apaga al paciente).
+     */
     @Transactional
     public boolean desvincularPorChat(Long chatId) {
-        return pacienteRepositoryPort.buscarPorTelegramChatId(chatId).map(paciente -> {
+        boolean comoTitular = pacienteRepositoryPort.buscarPorTelegramChatId(chatId).map(paciente -> {
             paciente.desvincularTelegram();
             pacienteRepositoryPort.guardar(paciente);
             eventPublisher.publishEvent(OperacionAuditadaEvent.exito(null, "TELEGRAM_DESVINCULADO", "PACIENTE",
                     paciente.getId(), "vinculado=true", "vinculado=false", "telegram"));
             return true;
         }).orElse(false);
+        List<Paciente> acompanados = pacienteRepositoryPort.listarPorTelegramReferido(chatId);
+        for (Paciente paciente : acompanados) {
+            paciente.desvincularTelegramReferido();
+            pacienteRepositoryPort.guardar(paciente);
+            eventPublisher.publishEvent(OperacionAuditadaEvent.exito(null, "TELEGRAM_REFERIDO_DESVINCULADO", "PACIENTE",
+                    paciente.getId(), "referido_vinculado=true", "referido_vinculado=false", "telegram"));
+        }
+        return comoTitular || !acompanados.isEmpty();
+    }
+
+    /** El paciente o recepcion quitan el Telegram del referido. */
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'PACIENTE')")
+    @Transactional
+    public void desvincularReferido(Long pacienteId, Long usuarioId, Rol rol, String ipOrigen) {
+        Paciente paciente = resolverPaciente(pacienteId, usuarioId, rol);
+        paciente.desvincularTelegramReferido();
+        pacienteRepositoryPort.guardar(paciente);
+        eventPublisher.publishEvent(OperacionAuditadaEvent.exito(usuarioId, "TELEGRAM_REFERIDO_DESVINCULADO", "PACIENTE",
+                paciente.getId(), "referido_vinculado=true", "referido_vinculado=false", ipOrigen));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'PACIENTE')")
@@ -115,7 +138,10 @@ public class VinculacionTelegramUseCase {
     @Transactional(readOnly = true)
     public EstadoVinculacion estado(Long pacienteId, Long usuarioId, Rol rol) {
         Paciente paciente = resolverPaciente(pacienteId, usuarioId, rol);
-        return new EstadoVinculacion(paciente.tieneTelegram(), paciente.getTelegramVinculadoEn(), telegramProperties.configurado());
+        return new EstadoVinculacion(paciente.tieneTelegram(), paciente.getTelegramVinculadoEn(), telegramProperties.configurado(),
+                paciente.getContactoTelegramChatId() != null, paciente.getContactoTelegramVinculadoEn(),
+                paciente.isContactoRecibeRecordatorios(), paciente.getContactoEmergenciaNombre(),
+                telegramProperties.configurado() ? "https://t.me/" + telegramProperties.botUsername() : null);
     }
 
     private Paciente resolverPaciente(Long pacienteId, Long usuarioId, Rol rol) {
@@ -133,6 +159,12 @@ public class VinculacionTelegramUseCase {
     public record EnlaceVinculacion(String enlace, Instant expiraEn, boolean yaVinculado) {
     }
 
-    public record EstadoVinculacion(boolean vinculado, Instant vinculadoEn, boolean telegramDisponible) {
+    /**
+     * @param referidoAutorizado el paciente autorizo que su referido reciba los recordatorios
+     * @param enlaceBot          enlace generico del bot (el mismo para todos), para el QR comun
+     */
+    public record EstadoVinculacion(boolean vinculado, Instant vinculadoEn, boolean telegramDisponible,
+                                    boolean referidoVinculado, Instant referidoVinculadoEn, boolean referidoAutorizado,
+                                    String referidoNombre, String enlaceBot) {
     }
 }

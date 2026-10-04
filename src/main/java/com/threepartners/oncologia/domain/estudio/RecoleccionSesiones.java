@@ -113,9 +113,15 @@ public final class RecoleccionSesiones {
         }
     }
 
+    /**
+     * @param citasConRecordatorio citas elegibles que recibieron al menos un
+     *                             recordatorio: un recordatorio solo reduce el
+     *                             ausentismo si llega, asi que se reporta junto al TA.
+     */
     public record Resumen(Fase fase, LocalDate desde, LocalDate hasta, List<DayOfWeek> diasSesion,
                           List<Sesion> sesiones, Indicadores promedioSesiones, Indicadores global,
-                          int registros, int citasElegibles, int consultas, Avisos avisos) {
+                          int registros, int citasElegibles, int consultas, Avisos avisos,
+                          int citasConRecordatorio, Double coberturaRecordatorioPct) {
     }
 
     public record Detalle(List<FilaTiempo> tiempos, List<FilaCita> citas, List<FilaConsulta> consultas) {
@@ -166,11 +172,15 @@ public final class RecoleccionSesiones {
                 fueraDeSesion);
 
         List<DayOfWeek> diasOrdenados = dias.stream().sorted().toList();
+        int elegibles = (int) enSesion.citas().stream().filter(FilaCita::elegible).count();
+        int conRecordatorio = (int) enSesion.citas().stream().filter(c -> c.elegible() && c.recordatorioEnviado()).count();
         return new Resumen(fase, desde, hasta, diasOrdenados, sesiones, promedio, global,
                 enSesion.tiempos().size(),
-                (int) enSesion.citas().stream().filter(FilaCita::elegible).count(),
+                elegibles,
                 (int) enSesion.consultas().stream().filter(k -> !k.abierta()).count(),
-                avisos);
+                avisos,
+                conRecordatorio,
+                elegibles == 0 ? null : redondear(100.0 * conRecordatorio / elegibles));
     }
 
     private static Sesion sesion(int numero, LocalDate fecha, Detalle enSesion) {

@@ -19,6 +19,8 @@ public record PacienteResumenResponseDto(
         String medicoTratanteNombre,
         Especialidad medicoTratanteEspecialidad,
         LocalDate ultimaCita,
-        LocalDate proximaCita
+        LocalDate proximaCita,
+        boolean tieneTelegram,
+        boolean referidoTieneTelegram
 ) {
 }

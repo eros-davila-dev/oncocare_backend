@@ -14,6 +14,9 @@ public record AuditoriaResponseDto(
         String valoresNuevos,
         String ipOrigen,
         Instant fecha,
-        ResultadoAuditoria resultado
+        ResultadoAuditoria resultado,
+        /** Quien hizo la accion y sobre que ("Jasmin Arnao Fretel"), en vez de ids. */
+        String usuarioNombre,
+        String entidadDescripcion
 ) {
 }

@@ -8,6 +8,7 @@ import com.threepartners.oncologia.infrastructure.in.rest.dto.paciente.PacienteR
 import com.threepartners.oncologia.infrastructure.in.rest.dto.paciente.PacienteResponseDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.paciente.PacienteResumenResponseDto;
 import org.mapstruct.Mapper;
+import org.mapstruct.Context;
 import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
@@ -20,7 +21,12 @@ public interface PacienteRestMapper {
     Paciente aDominio(PacienteRequestDto dto);
 
     @Mapping(target = "edad", expression = "java(paciente.edad())")
+    @Mapping(target = "medicoTratanteNombre", ignore = true)
     PacienteResponseDto aResponse(Paciente paciente);
+
+    @Mapping(target = "edad", expression = "java(paciente.edad())")
+    @Mapping(target = "medicoTratanteNombre", expression = "java(nombres.usuario(paciente.getMedicoTratanteId()))")
+    PacienteResponseDto aResponseConNombres(Paciente paciente, @Context NombresVista nombres);
 
     default PacienteResumenResponseDto aResumenResponse(PacienteResumen resumen) {
         Paciente p = resumen.paciente();
@@ -28,7 +34,7 @@ public interface PacienteRestMapper {
                 p.getId(), p.getNombres(), p.getApellidos(), p.getDocumentoIdentidad(), p.edad(),
                 p.getTipoCancer(), p.getConvenioSeguro(), p.isActivo(),
                 resumen.estadoTratamiento(), resumen.medicoTratanteNombre(), resumen.medicoTratanteEspecialidad(),
-                resumen.ultimaCita(), resumen.proximaCita());
+                resumen.ultimaCita(), resumen.proximaCita(), resumen.tieneTelegram(), resumen.referidoTieneTelegram());
     }
 
     default EstadisticasPacientesResponseDto aEstadisticasResponse(EstadisticasPacientes e) {

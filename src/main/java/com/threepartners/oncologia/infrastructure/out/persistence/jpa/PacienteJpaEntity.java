@@ -95,6 +95,12 @@ public class PacienteJpaEntity {
     @Column(name = "telegram_vinculado_en")
     private Instant telegramVinculadoEn;
 
+    @Column(name = "contacto_telegram_chat_id")
+    private Long contactoTelegramChatId;
+
+    @Column(name = "contacto_telegram_vinculado_en")
+    private Instant contactoTelegramVinculadoEn;
+
     @Column(name = "acepta_recordatorios", nullable = false)
     private boolean aceptaRecordatorios;
 
