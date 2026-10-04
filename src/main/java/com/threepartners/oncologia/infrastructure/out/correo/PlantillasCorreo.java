@@ -1,5 +1,6 @@
 package com.threepartners.oncologia.infrastructure.out.correo;
 
+import com.threepartners.oncologia.config.InstitucionProperties;
 import com.threepartners.oncologia.domain.notificacion.TipoCorreo;
 import org.springframework.web.util.HtmlUtils;
 
@@ -31,7 +32,6 @@ public final class PlantillasCorreo {
     private static final String FUENTE = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
     private static final String MARCA = "OncoCare";
-    private static final String INSTITUCION = "Fundación Oncológica Three Partners";
     private static final String LEMA = "Cuidamos hoy tu mañana";
 
     /** Bloques que se quitan cuando el correo no lleva enlace (p. ej. el recordatorio al referido). */
@@ -55,10 +55,16 @@ public final class PlantillasCorreo {
      */
     public static MensajeCorreo renderizar(TipoCorreo tipo, String destinatario, String nombre, String enlace,
                                            String logoUrl, Map<String, String> datos) {
+        return renderizar(tipo, destinatario, nombre, enlace, logoUrl, datos, InstitucionProperties.NOMBRE_POR_DEFECTO);
+    }
+
+    /** @param institucion nombre configurable de la institucion (app.institucion.nombre). */
+    public static MensajeCorreo renderizar(TipoCorreo tipo, String destinatario, String nombre, String enlace,
+                                           String logoUrl, Map<String, String> datos, String institucion) {
         Contenido c = contenido(tipo, datos == null ? Map.of() : datos, enlace != null && !enlace.isBlank());
         String pila = nombrePila(nombre);
         String saludo = pila.isEmpty() ? "Hola:" : "Hola, " + HtmlUtils.htmlEscape(pila) + ":";
-        return new MensajeCorreo(destinatario, c.asunto(), html(c, saludo, enlace, logoUrl));
+        return new MensajeCorreo(destinatario, c.asunto(), html(c, saludo, enlace, logoUrl, institucion));
     }
 
     private static Contenido contenido(TipoCorreo tipo, Map<String, String> datos, boolean conEnlace) {
@@ -137,7 +143,7 @@ public final class PlantillasCorreo {
         return nombre.trim().split("\\s+")[0];
     }
 
-    private static String html(Contenido c, String saludo, String enlace, String logoUrl) {
+    private static String html(Contenido c, String saludo, String enlace, String logoUrl, String institucion) {
         boolean conEnlace = enlace != null && !enlace.isBlank();
         String enlaceSeguro = conEnlace ? HtmlUtils.htmlEscape(enlace) : "";
         String plantilla = conEnlace ? PLANTILLA : BLOQUE_ENLACE.matcher(PLANTILLA).replaceAll("");
@@ -162,7 +168,7 @@ public final class PlantillasCorreo {
                 .replace("{{fondo}}", FONDO)
                 .replace("{{fuente}}", FUENTE)
                 .replace("{{marca}}", MARCA)
-                .replace("{{institucion}}", INSTITUCION)
+                .replace("{{institucion}}", HtmlUtils.htmlEscape(institucion))
                 .replace("{{lema}}", LEMA);
     }
 

@@ -104,7 +104,7 @@ public class GeneradorExportacionSpss {
         filaResumen(hoja, sheet, 1, "TPR (min)", c.pretest().tiempoPromedioRegistroMinutos(),
                 c.postest().tiempoPromedioRegistroMinutos(), c.tiempoPromedioRegistro(),
                 c.pretest().registros() + " registros", c.postest().registros() + " registros");
-        filaResumen(hoja, sheet, 2, "TNS (%)", c.pretest().tasaAusentismo(), c.postest().tasaAusentismo(),
+        filaResumen(hoja, sheet, 2, "TA (%)", c.pretest().tasaAusentismo(), c.postest().tasaAusentismo(),
                 c.tasaAusentismo(), c.pretest().citasConDesenlace() + " citas con desenlace",
                 c.postest().citasConDesenlace() + " citas con desenlace");
         filaResumen(hoja, sheet, 3, "NCA (%)", c.pretest().nivelConsultasAtendidas(),
@@ -121,12 +121,12 @@ public class GeneradorExportacionSpss {
             hoja.negrita(encabezado, col, columnas.get(col));
         }
         filaWilcoxon(hoja, sheet.createRow(r++), "TPR", datos.analisis().tiempoPromedioRegistro());
-        filaWilcoxon(hoja, sheet.createRow(r++), "TNS", datos.analisis().tasaAusentismo());
+        filaWilcoxon(hoja, sheet.createRow(r++), "TA", datos.analisis().tasaAusentismo());
         filaWilcoxon(hoja, sheet.createRow(r++), "NCA", datos.analisis().nivelConsultasAtendidas());
 
         r++;
         for (String nota : List.of(
-                "Diferencia = postest - pretest. Rangos negativos: postest < pretest (mejora esperada en TPR y TNS); "
+                "Diferencia = postest - pretest. Rangos negativos: postest < pretest (mejora esperada en TPR y TA); "
                         + "positivos: postest > pretest (mejora esperada en NCA).",
                 "Cada indicador usa solo los participantes con valor en ambas fases; los empates (diferencia 0) se descartan.",
                 "Z con el menor total de rangos, correccion por empates y sin correccion por continuidad (como SPSS). "
@@ -177,7 +177,7 @@ public class GeneradorExportacionSpss {
                 {"tpr_pre / tpr_post", "pareado", "Tiempo promedio de registro (min)", "Numerico", "Escala",
                         "TPR = suma de TRC / NCR. TRC medido por el servidor (inicio al abrir el formulario, fin al guardar)."},
                 {"tns_pre / tns_post", "pareado", "Tasa de ausentismo (%)", "Numerico", "Escala",
-                        "TNS = NI / (NI + NCC) x 100. Solo citas con desenlace (atendida o no asistio)."},
+                        "TA = NI / (NI + NCC) x 100. Solo citas con desenlace (atendida o no asistio)."},
                 {"nca_pre / nca_post", "pareado", "Nivel de consultas atendidas (%)", "Numerico", "Escala",
                         "NCA = CA / TCR x 100. Consultas con resultado final; resueltas por el chatbot o por el personal."},
                 {"fase", "detalle", "Fase del estudio", "Cadena", "Nominal", "PRETEST o POSTEST, segun las fechas configuradas."},
@@ -185,8 +185,8 @@ public class GeneradorExportacionSpss {
                 {"tpr_min", "detalle", "TPR (min)", "Numerico", "Escala", "Igual que tpr_pre/tpr_post."},
                 {"inasistencias", "detalle", "NI: inasistencias", "Numerico", "Escala", "Citas NO_ASISTIO."},
                 {"citas_cumplidas", "detalle", "NCC: citas cumplidas", "Numerico", "Escala", "Citas ATENDIDA."},
-                {"citas_desenlace", "detalle", "NI + NCC", "Numerico", "Escala", "Base de la TNS."},
-                {"tns_pct", "detalle", "TNS (%)", "Numerico", "Escala", "Igual que tns_pre/tns_post."},
+                {"citas_desenlace", "detalle", "NI + NCC", "Numerico", "Escala", "Base de la TA."},
+                {"tns_pct", "detalle", "TA (%)", "Numerico", "Escala", "Igual que tns_pre/tns_post."},
                 {"consultas_cerradas", "detalle", "TCR: consultas registradas", "Numerico", "Escala",
                         "Consultas con resultado final. Las escaladas sin respuesta y las anuladas no cuentan."},
                 {"consultas_resueltas", "detalle", "CA: consultas atendidas", "Numerico", "Escala",

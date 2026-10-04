@@ -63,12 +63,12 @@ public class GeneradorExportacionFichas {
         hoja.texto(tpr, 4, "TPR = suma TRC / NCR");
 
         Row tns = sheet.createRow(2);
-        hoja.texto(tns, 0, "TNS (%) - Instrumento 02");
+        hoja.texto(tns, 0, "TA (%) - Instrumento 02");
         hoja.decimal(tns, 1, i.tasaAusentismo());
         hoja.formula(tns, 2, "IF(COUNTA(asistencias!E:E)<=1,\"Sin datos\","
                 + "COUNTIF(asistencias!E:E,\"NO\")/(COUNTA(asistencias!E:E)-1)*100)");
         hoja.texto(tns, 3, i.inasistencias() + " de " + i.citasConDesenlace() + " citas con desenlace");
-        hoja.texto(tns, 4, "TNS = NI / (NI + NCC) x 100");
+        hoja.texto(tns, 4, "TA = NI / (NI + NCC) x 100");
 
         Row nca = sheet.createRow(3);
         hoja.texto(nca, 0, "NCA (%) - Instrumento 03");

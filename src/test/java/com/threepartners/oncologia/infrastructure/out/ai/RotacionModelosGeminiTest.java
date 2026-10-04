@@ -82,7 +82,7 @@ class RotacionModelosGeminiTest {
                 "http://127.0.0.1:" + servidor.getAddress().getPort(), Duration.ofMillis(300), Duration.ofSeconds(5));
         rotacion = new RotacionModelosGemini(reloj, json);
         adapter = new GeminiRestClientAdapter(propiedades, RestClient.builder(), json, rotacion,
-                new ResolutorConfiguracionGemini(propiedades, GeminiRestClientAdapterTest.repositorio(java.util.Optional.empty())));
+                new ResolutorConfiguracionGemini(propiedades, GeminiRestClientAdapterTest.repositorio(java.util.Optional.empty())), com.threepartners.oncologia.config.InstitucionProperties.porDefecto());
     }
 
     @AfterEach

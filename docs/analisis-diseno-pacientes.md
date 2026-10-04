@@ -263,7 +263,7 @@ Verificado: build de desarrollo, build de produccion y suite de tests sin errore
 
 ## 25. Dieciochoava pasada — quitar titular/parrafo, centrar el conjunto logo+anillo, duplicar el logo
 
-**Se quito el titular y el parrafo** ("Juntos por más historias de vida" + el texto de acompañamiento) del panel izquierdo, dejando solo la insignia "Fundación Oncológica Three Partners" junto al logo. Al desaparecer ese bloque de texto (que antes forzaba una distribucion vertical en 2 secciones separadas: logo arriba, texto debajo), se libero espacio para centrar el conjunto logo+anillo+insignia como una sola composicion.
+**Se quito el titular y el parrafo** ("Juntos por más historias de vida" + el texto de acompañamiento) del panel izquierdo, dejando solo la insignia "Fundación Oncológica" junto al logo. Al desaparecer ese bloque de texto (que antes forzaba una distribucion vertical en 2 secciones separadas: logo arriba, texto debajo), se libero espacio para centrar el conjunto logo+anillo+insignia como una sola composicion.
 
 **Centrado real del conjunto**: el contenedor que agrupa anillo+logo+insignia paso a `flex flex-1 flex-col items-center justify-center`, ocupando todo el espacio vertical disponible entre el borde superior del panel y la lista de beneficios (que se mantiene abajo, ahora tambien centrada horizontalmente con `justify-center` en vez de alineada a la izquierda, para que el panel se vea como una sola composicion centrada en vez de una mezcla de bloques centrados y alineados a la izquierda).
 

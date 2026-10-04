@@ -1,6 +1,6 @@
 # OncoCare — Backend
 
-Sistema web con chatbot para la gestion de pacientes de la Fundacion Oncologica Three Partners (tesis UCV, 2026): pacientes, citas, recordatorios por Telegram, chatbot con Gemini, consultas y los indicadores del estudio (TPR, TNS, NCA). Spring Boot 3.5 (Java 21) con arquitectura hexagonal.
+Sistema web con chatbot para la gestion de pacientes de una fundacion oncologica (tesis UCV, 2026): pacientes, citas, recordatorios por Telegram, chatbot con Gemini, consultas y los indicadores del estudio (TPR, TNS, NCA). Spring Boot 3.5 (Java 21) con arquitectura hexagonal.
 
 El frontend (portal del paciente e intranet del personal) es un repositorio aparte: **oncocare_frontend**, en la carpeta hermana.
 

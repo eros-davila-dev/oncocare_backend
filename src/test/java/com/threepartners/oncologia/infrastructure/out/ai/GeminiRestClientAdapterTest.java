@@ -48,7 +48,7 @@ class GeminiRestClientAdapterTest {
         var guardada = new ConfiguracionGemini("clave-intranet", false, List.of("gemini-2.5-flash"), 1L, null);
         RotacionModelosGemini rotacion = new RotacionModelosGemini(java.time.Clock.systemUTC(), new ObjectMapper());
         GeminiRestClientAdapter adapter = new GeminiRestClientAdapter(properties, RestClient.builder(), new ObjectMapper(),
-                rotacion, new ResolutorConfiguracionGemini(properties, repositorio(Optional.of(guardada))));
+                rotacion, new ResolutorConfiguracionGemini(properties, repositorio(Optional.of(guardada))), com.threepartners.oncologia.config.InstitucionProperties.porDefecto());
 
         adapter.interpretar("hola", List.of(), new ContextoUsuarioChatbot(false, false, null));
 
@@ -60,7 +60,7 @@ class GeminiRestClientAdapterTest {
     private static GeminiRestClientAdapter adaptador(GeminiProperties properties, Optional<ConfiguracionGemini> guardada) {
         return new GeminiRestClientAdapter(properties, RestClient.builder(), new ObjectMapper(),
                 new RotacionModelosGemini(java.time.Clock.systemUTC(), new ObjectMapper()),
-                new ResolutorConfiguracionGemini(properties, repositorio(guardada)));
+                new ResolutorConfiguracionGemini(properties, repositorio(guardada)), com.threepartners.oncologia.config.InstitucionProperties.porDefecto());
     }
 
     static ConfiguracionGeminiRepositoryPort repositorio(Optional<ConfiguracionGemini> guardada) {

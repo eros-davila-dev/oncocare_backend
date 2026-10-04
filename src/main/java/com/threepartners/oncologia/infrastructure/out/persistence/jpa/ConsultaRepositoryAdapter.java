@@ -66,6 +66,13 @@ public class ConsultaRepositoryAdapter implements ConsultaRepositoryPort {
     }
 
     @Override
+    public Pagina<Consulta> listarPorPaciente(Long pacienteId, CriterioPaginacion criterio) {
+        var pageable = PaginacionMapper.aPageable(
+                new CriterioPaginacion(criterio.numeroPagina(), criterio.tamanoPagina(), "abiertaEn", false), "abiertaEn");
+        return PaginacionMapper.aPagina(jpaRepository.findDelPaciente(pacienteId, pageable), ConsultaRepositoryAdapter::aDominio);
+    }
+
+    @Override
     public List<Consulta> abiertasSinActividadAntesDe(Instant limite) {
         return jpaRepository.findByResultadoIsNullAndUltimaActividadEnBefore(limite).stream()
                 .map(ConsultaRepositoryAdapter::aDominio).toList();

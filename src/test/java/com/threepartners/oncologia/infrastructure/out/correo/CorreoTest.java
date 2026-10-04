@@ -149,7 +149,8 @@ class CorreoTest {
             }
         };
         var propiedades = new CorreoProperties("a@b.pe", "F", "https://portal.pe/logo-correo.png", null, null);
-        var enrutador = new EntregaExternaEnrutador(n8n, new ServicioCorreo(List.of(capturador), "a@b.pe", "F"), propiedades);
+        var enrutador = new EntregaExternaEnrutador(n8n, new ServicioCorreo(List.of(capturador), "a@b.pe", "F"), propiedades,
+                com.threepartners.oncologia.config.InstitucionProperties.porDefecto());
 
         enrutador.entregar("correo:BIENVENIDA_USUARIO",
                 Map.of("email", "medico@fundacion.pe", "nombre", "Luis", "enlace", "https://intranet/x"));

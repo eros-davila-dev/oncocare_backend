@@ -14,10 +14,10 @@ public class OpenApiConfig {
     private static final String ESQUEMA_JWT = "bearerAuth";
 
     @Bean
-    public OpenAPI oncologiaOpenApi() {
+    public OpenAPI oncologiaOpenApi(InstitucionProperties institucion) {
         return new OpenAPI()
                 .info(new Info()
-                        .title("API Sistema Oncologico - Fundacion Three Partners")
+                        .title("API Sistema Oncologico - " + institucion.nombre())
                         .description("Gestion de pacientes, citas, tratamientos, auditoria y chatbot oncologico")
                         .version("v1"))
                 .addSecurityItem(new SecurityRequirement().addList(ESQUEMA_JWT))

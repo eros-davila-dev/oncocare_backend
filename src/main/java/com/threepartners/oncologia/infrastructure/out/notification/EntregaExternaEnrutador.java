@@ -1,6 +1,7 @@
 package com.threepartners.oncologia.infrastructure.out.notification;
 
 import com.threepartners.oncologia.application.notificacion.EncolarCorreo;
+import com.threepartners.oncologia.config.InstitucionProperties;
 import com.threepartners.oncologia.domain.notificacion.EntregaExternaPort;
 import com.threepartners.oncologia.domain.notificacion.TipoCorreo;
 import com.threepartners.oncologia.infrastructure.out.correo.CorreoProperties;
@@ -23,13 +24,14 @@ public class EntregaExternaEnrutador implements EntregaExternaPort {
     private final N8nNotificationAdapter n8n;
     private final ServicioCorreo servicioCorreo;
     private final CorreoProperties correoProperties;
+    private final InstitucionProperties institucion;
 
     @Override
     public void entregar(String destino, Map<String, Object> payload) {
         if (destino.startsWith(EncolarCorreo.PREFIJO_DESTINO)) {
             TipoCorreo tipo = TipoCorreo.valueOf(destino.substring(EncolarCorreo.PREFIJO_DESTINO.length()));
             servicioCorreo.enviar(PlantillasCorreo.renderizar(tipo, texto(payload, "email"),
-                    texto(payload, "nombre"), texto(payload, "enlace"), correoProperties.logoUrl(), datos(payload)));
+                    texto(payload, "nombre"), texto(payload, "enlace"), correoProperties.logoUrl(), datos(payload), institucion.nombre()));
             return;
         }
         n8n.entregar(destino, payload);
