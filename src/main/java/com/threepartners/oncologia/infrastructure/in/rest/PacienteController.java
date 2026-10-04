@@ -1,5 +1,7 @@
 package com.threepartners.oncologia.infrastructure.in.rest;
 
+import com.threepartners.oncologia.infrastructure.in.rest.mapper.NombresVista;
+import com.threepartners.oncologia.application.comun.NombresService;
 import com.threepartners.oncologia.application.paciente.ActualizarPacienteUseCase;
 import com.threepartners.oncologia.application.paciente.CompletarPerfilPacienteUseCase;
 import com.threepartners.oncologia.application.paciente.ConsultarEstadisticasPacientesUseCase;
@@ -31,6 +33,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/pacientes")
 @RequiredArgsConstructor
 public class PacienteController {
+
+    private final NombresService nombresService;
 
     private final RegistrarPacienteUseCase registrarPacienteUseCase;
     private final ActualizarPacienteUseCase actualizarPacienteUseCase;
@@ -71,7 +75,9 @@ public class PacienteController {
 
     @GetMapping("/{id}")
     public PacienteResponseDto porId(@PathVariable Long id) {
-        return mapper.aResponse(consultarPacienteUseCase.porId(id));
+        var paciente = consultarPacienteUseCase.porId(id);
+        return mapper.aResponseConNombres(paciente,
+                new NombresVista(null, nombresService.usuarios(java.util.Collections.singletonList(paciente.getMedicoTratanteId())), null));
     }
 
     @GetMapping("/documento-disponible")

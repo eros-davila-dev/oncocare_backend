@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, Long> {
@@ -24,6 +25,18 @@ public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, 
     Optional<PacienteJpaEntity> findByUsuarioId(Long usuarioId);
 
     Optional<PacienteJpaEntity> findByTelegramChatId(Long telegramChatId);
+
+    List<PacienteJpaEntity> findByContactoTelegramChatId(Long contactoTelegramChatId);
+
+    // Misma normalizacion que Telefono.normalizar y los indices de V13.
+    @Query(value = "SELECT * FROM paciente WHERE activo AND RIGHT(REGEXP_REPLACE(telefono, '[^0-9]', '', 'g'), 9) = :telefono",
+            nativeQuery = true)
+    List<PacienteJpaEntity> findActivosPorTelefono(@Param("telefono") String telefonoNormalizado);
+
+    @Query(value = "SELECT * FROM paciente WHERE activo "
+            + "AND RIGHT(REGEXP_REPLACE(contacto_emergencia_telefono, '[^0-9]', '', 'g'), 9) = :telefono",
+            nativeQuery = true)
+    List<PacienteJpaEntity> findActivosPorTelefonoReferido(@Param("telefono") String telefonoNormalizado);
 
     long countByFechaRegistroBetween(Instant desde, Instant hasta);
 
@@ -73,6 +86,8 @@ public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, 
                     p.contacto_emergencia_telefono AS contacto_emergencia_telefono,
                     p.activo AS activo,
                     p.fecha_registro AS fecha_registro,
+                    p.telegram_chat_id IS NOT NULL AS tiene_telegram,
+                    p.contacto_telegram_chat_id IS NOT NULL AS referido_tiene_telegram,
                     u.nombres AS medico_nombre,
                     u.especialidad AS medico_especialidad,
                     (SELECT MAX(c.fecha) FROM cita c WHERE c.paciente_id = p.id AND c.estado = 'ATENDIDA') AS ultima_cita,

@@ -53,7 +53,7 @@ public class Recordatorio {
         List<Recordatorio> plan = new ArrayList<>();
         Instant momentoCita = momentoDe(cita);
         List<TipoRecordatorio> tipos = switch (canal) {
-            case TELEGRAM -> List.of(TipoRecordatorio.values());
+            case TELEGRAM, TELEGRAM_REFERIDO -> List.of(TipoRecordatorio.values());
             case CORREO -> List.of(TipoRecordatorio.T72H, TipoRecordatorio.T24H);
             case LLAMADA -> List.of(TipoRecordatorio.T24H);
         };

@@ -85,8 +85,9 @@ class ChatbotOrquestadorUseCaseTest {
                 geminiPort, conversacionChatbotRepositoryPort, pacienteRepositoryPort, usuarioRepositoryPort,
                 consultarCitaUseCase, agendarCitaUseCase, reprogramarCitaUseCase, cancelarCitaUseCase,
                 registrarAsistenciaCitaUseCase, frontendProperties, registroProperties, gestorConsultas,
-                preguntaFrecuenteRepositoryPort, Clock.systemUTC(), accionesCitaPacienteService);
-        when(conversacionChatbotRepositoryPort.listarPorSesion(anyString(), any(Integer.class))).thenReturn(List.of());
+                preguntaFrecuenteRepositoryPort, Clock.systemUTC(), accionesCitaPacienteService,
+                new SugerenciasChatbot(preguntaFrecuenteRepositoryPort));
+        lenient().when(conversacionChatbotRepositoryPort.listarPorSesion(anyString(), any(Integer.class))).thenReturn(List.of());
         lenient().when(gestorConsultas.registrarTurno(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(Consulta.builder().id(1L).build());
     }
@@ -236,5 +237,48 @@ class ChatbotOrquestadorUseCaseTest {
 
         verify(gestorConsultas).registrarTurno(eq("sesion-11"), any(), any(), eq(Intencion.GENERAL_QUERY),
                 eq(ResultadoAccion.INFORMATIVA), any(), any(), any());
+    }
+
+    @Test
+    void unSaludoSeRespondeConSugerenciasPeroNoCuentaComoConsulta() {
+        when(geminiPort.interpretar(anyString(), any(), any()))
+                .thenReturn(new InterpretacionChatbot(Intencion.GREETING, Map.of(), false,
+                        "Hola, en que puedo ayudarte?", null, true));
+
+        var respuesta = useCase.procesar("sesion-12", "hola", CanalConsulta.CHATBOT_WEB, null, null, "127.0.0.1");
+
+        assertThat(respuesta.consultaId()).isNull();
+        assertThat(respuesta.sugerencias()).contains("Quiero agendar una cita");
+        verifyNoInteractions(gestorConsultas);
+    }
+
+    @Test
+    void sinEspecialidadAlAgendarSugiereLasEspecialidades() {
+        Paciente paciente = pacienteDePrueba();
+        when(pacienteRepositoryPort.buscarPorUsuarioId(5L)).thenReturn(Optional.of(paciente));
+        when(usuarioRepositoryPort.buscarPorId(5L)).thenReturn(Optional.of(Usuario.builder().id(5L).nombres("Ana").build()));
+        when(geminiPort.interpretar(anyString(), any(), any()))
+                .thenReturn(new InterpretacionChatbot(Intencion.BOOK_APPOINTMENT, Map.of(), false,
+                        "Para que especialidad?", com.threepartners.oncologia.domain.estudio.CategoriaConsulta.CITAS, true));
+
+        var respuesta = useCase.procesar("sesion-13", "quiero una cita", CanalConsulta.CHATBOT_WEB, 5L, Rol.PACIENTE, "127.0.0.1");
+
+        assertThat(respuesta.sugerencias()).containsExactlyElementsOf(SugerenciasChatbot.ESPECIALIDADES);
+    }
+
+    @Test
+    void lasSugerenciasInicialesDependenDeSiElPacienteInicioSesion() {
+        when(preguntaFrecuenteRepositoryPort.listarActivas()).thenReturn(List.of(
+                com.threepartners.oncologia.domain.chatbot.PreguntaFrecuente.builder().pregunta("¿Cuál es el horario?").activa(true).build()));
+        Paciente paciente = pacienteDePrueba();
+        when(pacienteRepositoryPort.buscarPorUsuarioId(5L)).thenReturn(Optional.of(paciente));
+        when(usuarioRepositoryPort.buscarPorId(5L)).thenReturn(Optional.of(Usuario.builder().id(5L).nombres("Ana").build()));
+
+        assertThat(useCase.sugerenciasIniciales(null, null))
+                .containsExactly("Quiero agendar una cita", "¿Cómo creo mi cuenta?", "¿Cuál es el horario?");
+        assertThat(useCase.sugerenciasIniciales(5L, Rol.PACIENTE))
+                .startsWith("Ver mis citas", "Confirmar mi próxima cita", "Quiero agendar una cita")
+                .contains("¿Cuál es el horario?")
+                .doesNotContain("¿Cómo creo mi cuenta?");
     }
 }

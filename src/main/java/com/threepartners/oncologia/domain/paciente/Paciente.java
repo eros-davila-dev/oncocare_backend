@@ -44,6 +44,13 @@ public class Paciente {
     /** Chat de Telegram vinculado (recordatorios y chatbot). Null si no lo vinculo. */
     private Long telegramChatId;
     private Instant telegramVinculadoEn;
+    /**
+     * Telegram del referido (acompanante): recibe los recordatorios del
+     * paciente si este lo autorizo. Un mismo chat puede acompanar a varios
+     * pacientes (p. ej. una hija que cuida a sus dos padres).
+     */
+    private Long contactoTelegramChatId;
+    private Instant contactoTelegramVinculadoEn;
     /** null = si (valor por defecto); solo un false explicito apaga los recordatorios. */
     private Boolean aceptaRecordatorios;
 
@@ -81,6 +88,29 @@ public class Paciente {
         this.telegramVinculadoEn = null;
     }
 
+    public void vincularTelegramReferido(Long chatId, Instant cuando) {
+        this.contactoTelegramChatId = chatId;
+        this.contactoTelegramVinculadoEn = cuando;
+    }
+
+    public void desvincularTelegramReferido() {
+        this.contactoTelegramChatId = null;
+        this.contactoTelegramVinculadoEn = null;
+    }
+
+    /** El referido recibe los recordatorios por Telegram: tiene chat vinculado y el paciente lo autorizo. */
+    public boolean referidoRecibeTelegram() {
+        return contactoRecibeRecordatorios && contactoTelegramChatId != null;
+    }
+
+    /** Primer nombre del referido, para saludarlo en sus mensajes. */
+    public String nombrePilaReferido() {
+        if (contactoEmergenciaNombre == null || contactoEmergenciaNombre.isBlank()) {
+            return "";
+        }
+        return contactoEmergenciaNombre.strip().split("\\s+")[0];
+    }
+
     /**
      * Datos de contacto obligatorios para registrar o editar un paciente: su
      * correo (recordatorios de cita) y el de su referido. Se valida en el
@@ -88,6 +118,13 @@ public class Paciente {
      * a esos se les pide al editarlos.
      */
     public void validarDatosDeContacto() {
+        // El telefono es la llave para vincular Telegram con "Compartir mi numero".
+        if (Telefono.normalizar(telefono).isEmpty()) {
+            throw new ValidacionDeNegocioException("El telefono del paciente es obligatorio (al menos 9 digitos)");
+        }
+        if (Telefono.mismos(telefono, contactoEmergenciaTelefono)) {
+            throw new ValidacionDeNegocioException("El telefono del referido debe ser distinto al del paciente");
+        }
         if (email == null || email.isBlank()) {
             throw new ValidacionDeNegocioException("El correo electronico del paciente es obligatorio");
         }

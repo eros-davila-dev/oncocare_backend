@@ -43,7 +43,7 @@ class RegistrarPacienteUseCaseTest {
 
     @Test
     void registraElPacienteCuandoElDocumentoEsUnico() {
-        Paciente paciente = Paciente.builder().documentoIdentidad("12345678").nombres("Ana").apellidos("Perez")
+        Paciente paciente = Paciente.builder().documentoIdentidad("12345678").telefono("904049494").nombres("Ana").apellidos("Perez")
                 .email("ana@correo.pe").contactoEmergenciaEmail("hija@correo.pe").build();
         when(pacienteRepositoryPort.existePorDocumento("12345678")).thenReturn(false);
         when(pacienteRepositoryPort.guardar(any(Paciente.class))).thenAnswer(inv -> {
@@ -61,7 +61,7 @@ class RegistrarPacienteUseCaseTest {
 
     @Test
     void rechazaElRegistroCuandoElDocumentoYaExiste() {
-        Paciente paciente = Paciente.builder().documentoIdentidad("12345678")
+        Paciente paciente = Paciente.builder().documentoIdentidad("12345678").telefono("904049494")
                 .email("ana@correo.pe").contactoEmergenciaEmail("hija@correo.pe").build();
         when(pacienteRepositoryPort.existePorDocumento("12345678")).thenReturn(true);
 
@@ -71,9 +71,9 @@ class RegistrarPacienteUseCaseTest {
 
     @Test
     void exigeElCorreoDelPacienteYElDelReferido() {
-        Paciente sinCorreo = Paciente.builder().documentoIdentidad("12345678").contactoEmergenciaEmail("hija@correo.pe").build();
-        Paciente sinReferido = Paciente.builder().documentoIdentidad("12345678").email("ana@correo.pe").build();
-        Paciente mismoCorreo = Paciente.builder().documentoIdentidad("12345678")
+        Paciente sinCorreo = Paciente.builder().documentoIdentidad("12345678").telefono("904049494").contactoEmergenciaEmail("hija@correo.pe").build();
+        Paciente sinReferido = Paciente.builder().documentoIdentidad("12345678").telefono("904049494").email("ana@correo.pe").build();
+        Paciente mismoCorreo = Paciente.builder().documentoIdentidad("12345678").telefono("904049494")
                 .email("ana@correo.pe").contactoEmergenciaEmail("ANA@correo.pe").build();
 
         assertThatThrownBy(() -> useCase.ejecutar(sinCorreo, null, 1L, null))
@@ -84,5 +84,16 @@ class RegistrarPacienteUseCaseTest {
         assertThatThrownBy(() -> useCase.ejecutar(mismoCorreo, null, 1L, null))
                 .hasMessageContaining("distinto");
         org.mockito.Mockito.verify(pacienteRepositoryPort, org.mockito.Mockito.never()).guardar(any());
+    }
+
+    @Test
+    void exigeElTelefonoDelPacienteYQueSeaDistintoAlDelReferido() {
+        Paciente sinTelefono = Paciente.builder().documentoIdentidad("12345678")
+                .email("ana@correo.pe").contactoEmergenciaEmail("hija@correo.pe").build();
+        Paciente mismoTelefono = Paciente.builder().documentoIdentidad("12345678").telefono("+51 904 049 494")
+                .contactoEmergenciaTelefono("904049494").email("ana@correo.pe").contactoEmergenciaEmail("hija@correo.pe").build();
+
+        assertThatThrownBy(() -> useCase.ejecutar(sinTelefono, null, 1L, null)).hasMessageContaining("telefono del paciente");
+        assertThatThrownBy(() -> useCase.ejecutar(mismoTelefono, null, 1L, null)).hasMessageContaining("distinto al del paciente");
     }
 }

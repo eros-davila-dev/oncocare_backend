@@ -53,4 +53,8 @@ public interface PacienteResumenProjection {
     LocalDate getProximaCita();
 
     String getEstadoTratamiento();
+
+    Boolean getTieneTelegram();
+
+    Boolean getReferidoTieneTelegram();
 }

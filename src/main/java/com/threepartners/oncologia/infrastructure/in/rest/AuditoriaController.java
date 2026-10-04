@@ -1,5 +1,7 @@
 package com.threepartners.oncologia.infrastructure.in.rest;
 
+import com.threepartners.oncologia.infrastructure.in.rest.mapper.NombresVista;
+import com.threepartners.oncologia.application.comun.NombresService;
 import com.threepartners.oncologia.application.auditoria.ConsultarAuditoriaUseCase;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.PaginaResponseDto;
@@ -23,6 +25,8 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class AuditoriaController {
 
+    private final NombresService nombresService;
+
     private final ConsultarAuditoriaUseCase consultarAuditoriaUseCase;
     private final AuditoriaRestMapper mapper;
 
@@ -38,6 +42,16 @@ public class AuditoriaController {
         // Lo mas reciente primero: es lo que se busca al revisar una bitacora.
         var criterio = new CriterioPaginacion(page, size, "fecha", false);
         var pagina = consultarAuditoriaUseCase.ejecutar(usuarioId, entidadAfectada, desde, hasta, criterio);
-        return PaginaResponseDto.de(pagina, mapper::aResponse);
+        // Quien y sobre que, con nombres: la bitacora la lee una persona, no un sistema.
+        java.util.Map<String, String> entidades = new java.util.HashMap<>();
+        pagina.contenido().forEach(a -> {
+            String descripcion = nombresService.entidad(a.getEntidadAfectada(), a.getEntidadId());
+            if (descripcion != null) {
+                entidades.put(a.getEntidadAfectada() + ":" + a.getEntidadId(), descripcion);
+            }
+        });
+        var nombres = new NombresVista(null,
+                nombresService.usuarios(pagina.contenido().stream().map(a -> a.getUsuarioId()).toList()), entidades);
+        return PaginaResponseDto.de(pagina, a -> mapper.aResponse(a, nombres));
     }
 }

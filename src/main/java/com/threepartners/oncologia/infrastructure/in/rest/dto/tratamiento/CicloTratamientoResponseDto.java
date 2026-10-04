@@ -15,6 +15,8 @@ public record CicloTratamientoResponseDto(
         LocalDate fechaSesion,
         Long medicoResponsableId,
         EstadoCicloTratamiento estado,
-        String observaciones
+        String observaciones,
+        String pacienteNombre,
+        String medicoResponsableNombre
 ) {
 }

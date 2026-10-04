@@ -1,5 +1,7 @@
 package com.threepartners.oncologia.infrastructure.in.rest;
 
+import com.threepartners.oncologia.infrastructure.in.rest.mapper.NombresVista;
+import com.threepartners.oncologia.application.comun.NombresService;
 import com.threepartners.oncologia.application.cita.AgendarCitaUseCase;
 import com.threepartners.oncologia.application.cita.CancelarCitaUseCase;
 import com.threepartners.oncologia.application.cita.ConsultarAgendaUseCase;
@@ -8,6 +10,7 @@ import com.threepartners.oncologia.application.cita.ListarCitasProximasUseCase;
 import com.threepartners.oncologia.application.cita.RegistrarAsistenciaCitaUseCase;
 import com.threepartners.oncologia.application.cita.ReprogramarCitaUseCase;
 import com.threepartners.oncologia.domain.cita.CitaAgenda;
+import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.domain.cita.EstadoCita;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.PaginaResponseDto;
@@ -40,6 +43,8 @@ import java.util.List;
 @RequestMapping("/api/v1/citas")
 @RequiredArgsConstructor
 public class CitaController {
+
+    private final NombresService nombresService;
 
     private final AgendarCitaUseCase agendarCitaUseCase;
     private final ReprogramarCitaUseCase reprogramarCitaUseCase;
@@ -130,12 +135,14 @@ public class CitaController {
             @RequestParam(defaultValue = "20") int size) {
 
         var pagina = consultarCitaUseCase.misCitas(AutenticacionActual.usuarioId(), estado, CriterioPaginacion.de(page, size));
-        return PaginaResponseDto.de(pagina, mapper::aResponse);
+        var nombres = nombresDe(pagina.contenido());
+        return PaginaResponseDto.de(pagina, c -> mapper.aResponseConNombres(c, nombres));
     }
 
     @GetMapping("/{id}")
     public CitaResponseDto porId(@PathVariable Long id) {
-        return mapper.aResponse(consultarCitaUseCase.porId(id));
+        var cita = consultarCitaUseCase.porId(id);
+        return mapper.aResponseConNombres(cita, nombresDe(List.of(cita)));
     }
 
     @GetMapping
@@ -149,7 +156,8 @@ public class CitaController {
             @RequestParam(defaultValue = "20") int size) {
 
         var pagina = consultarCitaUseCase.listar(pacienteId, medicoId, desde, hasta, estado, CriterioPaginacion.de(page, size));
-        return PaginaResponseDto.de(pagina, mapper::aResponse);
+        var nombres = nombresDe(pagina.contenido());
+        return PaginaResponseDto.de(pagina, c -> mapper.aResponseConNombres(c, nombres));
     }
 
     /**
@@ -160,5 +168,11 @@ public class CitaController {
             @RequestParam(defaultValue = "24") int horasDesde,
             @RequestParam(defaultValue = "48") int horasHasta) {
         return listarCitasProximasUseCase.ejecutar(horasDesde, horasHasta).stream().map(mapper::aResponse).toList();
+    }
+
+    /** Nombres del paciente y del medico de cada cita de la pagina (en vez de ids). */
+    private NombresVista nombresDe(java.util.Collection<Cita> citas) {
+        return new NombresVista(nombresService.pacientes(citas.stream().map(Cita::getPacienteId).toList()),
+                nombresService.usuarios(citas.stream().map(Cita::getMedicoId).toList()), null);
     }
 }

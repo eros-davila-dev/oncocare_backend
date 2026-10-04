@@ -6,6 +6,7 @@ import com.threepartners.oncologia.application.recordatorio.EntregarRecordatorio
 import com.threepartners.oncologia.application.recordatorio.EntregarRecordatoriosUseCase.RecordatorioParaEnviar;
 import com.threepartners.oncologia.application.recordatorio.ResponderRecordatorioUseCase;
 import com.threepartners.oncologia.application.recordatorio.ResponderRecordatorioUseCase.AccionRecordatorio;
+import com.threepartners.oncologia.application.telegram.VinculacionTelegramPorTelefonoUseCase;
 import com.threepartners.oncologia.application.telegram.VinculacionTelegramUseCase;
 import com.threepartners.oncologia.domain.estudio.CanalConsulta;
 import com.threepartners.oncologia.domain.shared.exception.DomainException;
@@ -47,6 +48,7 @@ public class IntegracionN8nController {
 
     private final WebhookSecretValidator webhookSecretValidator;
     private final VinculacionTelegramUseCase vinculacionTelegramUseCase;
+    private final VinculacionTelegramPorTelefonoUseCase vinculacionPorTelefonoUseCase;
     private final EntregarRecordatoriosUseCase entregarRecordatoriosUseCase;
     private final ResponderRecordatorioUseCase responderRecordatorioUseCase;
     private final ChatbotOrquestadorUseCase chatbotOrquestadorUseCase;
@@ -81,6 +83,19 @@ public class IntegracionN8nController {
         }
     }
 
+    /**
+     * El usuario toco "Compartir mi numero" en el bot (vinculacion sin enlace
+     * personal). fromId y contactoUsuarioId deben coincidir: solo se acepta el
+     * numero propio.
+     */
+    @PostMapping("/telegram/vincular-telefono")
+    public RespuestaTelegramDto vincularPorTelefono(@RequestHeader(value = HEADER, required = false) String secreto,
+                                                    @Valid @RequestBody VincularTelefonoDto dto) {
+        webhookSecretValidator.validar(secreto);
+        return new RespuestaTelegramDto(true, vinculacionPorTelefonoUseCase.compartioNumero(
+                dto.chatId(), dto.fromId(), dto.contactoUsuarioId(), dto.telefono()));
+    }
+
     @PostMapping("/telegram/desvincular")
     public RespuestaTelegramDto desvincular(@RequestHeader(value = HEADER, required = false) String secreto,
                                             @Valid @RequestBody ChatDto dto) {
@@ -106,6 +121,11 @@ public class IntegracionN8nController {
     public ChatbotMensajeResponseDto mensaje(@RequestHeader(value = HEADER, required = false) String secreto,
                                              @Valid @RequestBody MensajeTelegramDto dto) {
         webhookSecretValidator.validar(secreto);
+        // Si el chat esta confirmando una vinculacion (3 digitos del DNI), ese texto no va al chatbot.
+        var confirmacion = vinculacionPorTelefonoUseCase.confirmar(dto.chatId(), dto.texto());
+        if (confirmacion.isPresent()) {
+            return new ChatbotMensajeResponseDto(confirmacion.get(), null, null);
+        }
         var respuesta = chatbotOrquestadorUseCase.procesarDesdeTelegram(dto.chatId(), dto.texto());
         return new ChatbotMensajeResponseDto(respuesta.texto(), respuesta.consultaId(), respuesta.estadoConsulta());
     }
@@ -139,6 +159,11 @@ public class IntegracionN8nController {
     }
 
     public record ChatDto(@NotNull Long chatId) {
+    }
+
+    /** Datos del update de Telegram con message.contact: from.id, contact.user_id y contact.phone_number. */
+    public record VincularTelefonoDto(@NotNull Long chatId, @NotNull Long fromId, Long contactoUsuarioId,
+                                      @NotBlank @Size(max = 30) String telefono) {
     }
 
     public record AccionCitaDto(@NotNull Long chatId, @NotNull Long recordatorioId, @NotNull AccionRecordatorio accion) {

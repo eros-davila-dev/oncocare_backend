@@ -8,6 +8,8 @@ import com.threepartners.oncologia.domain.estudio.ConsultaRepositoryPort;
 import com.threepartners.oncologia.domain.shared.CriterioPaginacion;
 import com.threepartners.oncologia.domain.shared.Pagina;
 import com.threepartners.oncologia.domain.shared.exception.RecursoNoEncontradoException;
+import com.threepartners.oncologia.domain.paciente.Paciente;
+import com.threepartners.oncologia.domain.paciente.PacienteRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,14 +28,29 @@ import java.util.List;
 public class BandejaConsultasUseCase {
 
     private final ConsultaRepositoryPort consultaRepositoryPort;
+    private final PacienteRepositoryPort pacienteRepositoryPort;
     private final ConversacionChatbotRepositoryPort conversacionRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
+    /**
+     * Consulta de la bandeja con quien la hizo: el personal necesita el nombre
+     * y el telefono para responderle (un id no le sirve). Visitante anonimo =
+     * sin paciente.
+     */
+    public record ConsultaEnBandeja(Consulta consulta, String pacienteNombre, String pacienteTelefono) {
+    }
+
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @Transactional(readOnly = true)
-    public Pagina<Consulta> escaladas(CriterioPaginacion criterio) {
-        return consultaRepositoryPort.listarEscaladas(criterio);
+    public Pagina<ConsultaEnBandeja> escaladas(CriterioPaginacion criterio) {
+        Pagina<Consulta> pagina = consultaRepositoryPort.listarEscaladas(criterio);
+        return pagina.map(c -> {
+            Paciente paciente = c.getPacienteId() == null ? null
+                    : pacienteRepositoryPort.buscarPorId(c.getPacienteId()).orElse(null);
+            return new ConsultaEnBandeja(c, paciente != null ? paciente.nombreCompleto() : null,
+                    paciente != null ? paciente.getTelefono() : null);
+        });
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")

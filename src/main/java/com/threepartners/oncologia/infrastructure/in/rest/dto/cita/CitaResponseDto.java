@@ -21,6 +21,9 @@ public record CitaResponseDto(
         Instant fechaHoraDesenlace,
         Long desenlaceRegistradoPor,
         boolean cierreAutomatico,
-        int vecesReprogramada
+        int vecesReprogramada,
+        /** Nombres para mostrar (null si no se resolvieron, p. ej. en respuestas a n8n). */
+        String pacienteNombre,
+        String medicoNombre
 ) {
 }

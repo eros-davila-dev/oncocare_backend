@@ -119,6 +119,9 @@ services:
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
       # URL publica HTTPS por la que Telegram entrega los updates (tunel en
       # desarrollo, dominio en produccion). Ver n8n/README.md.
+      # n8n 2.x usa N8N_WEBHOOK_URL (WEBHOOK_URL queda por compatibilidad). Telegram
+      # exige una URL publica HTTPS: en desarrollo, la del tunel de cloudflared.
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
       WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
       # Clave estable: sin ella, recrear el contenedor invalida las credenciales guardadas.
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-cambia-esta-clave-de-cifrado-de-n8n}

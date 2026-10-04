@@ -11,6 +11,7 @@ import com.threepartners.oncologia.domain.usuario.Especialidad;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -66,6 +67,22 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
     }
 
     @Override
+    public List<Paciente> listarPorTelegramReferido(Long chatId) {
+        return jpaRepository.findByContactoTelegramChatId(chatId).stream().map(PacienteRepositoryAdapter::aDominio).toList();
+    }
+
+    @Override
+    public List<Paciente> listarPorTelefono(String telefonoNormalizado) {
+        return jpaRepository.findActivosPorTelefono(telefonoNormalizado).stream().map(PacienteRepositoryAdapter::aDominio).toList();
+    }
+
+    @Override
+    public List<Paciente> listarPorTelefonoReferido(String telefonoNormalizado) {
+        return jpaRepository.findActivosPorTelefonoReferido(telefonoNormalizado).stream()
+                .map(PacienteRepositoryAdapter::aDominio).toList();
+    }
+
+    @Override
     public Optional<Paciente> buscarPorUsuarioId(Long usuarioId) {
         return jpaRepository.findByUsuarioId(usuarioId).map(PacienteRepositoryAdapter::aDominio);
     }
@@ -109,6 +126,8 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .fechaRegistro(paciente.getFechaRegistro())
                 .telegramChatId(paciente.getTelegramChatId())
                 .telegramVinculadoEn(paciente.getTelegramVinculadoEn())
+                .contactoTelegramChatId(paciente.getContactoTelegramChatId())
+                .contactoTelegramVinculadoEn(paciente.getContactoTelegramVinculadoEn())
                 .aceptaRecordatorios(paciente.aceptaRecordatorios())
                 .build();
     }
@@ -137,6 +156,8 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .fechaRegistro(entidad.getFechaRegistro())
                 .telegramChatId(entidad.getTelegramChatId())
                 .telegramVinculadoEn(entidad.getTelegramVinculadoEn())
+                .contactoTelegramChatId(entidad.getContactoTelegramChatId())
+                .contactoTelegramVinculadoEn(entidad.getContactoTelegramVinculadoEn())
                 .aceptaRecordatorios(entidad.isAceptaRecordatorios())
                 .build();
     }
@@ -168,6 +189,8 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 p.getMedicoNombre(),
                 p.getMedicoEspecialidad() != null ? Especialidad.valueOf(p.getMedicoEspecialidad()) : null,
                 p.getUltimaCita(),
-                p.getProximaCita());
+                p.getProximaCita(),
+                Boolean.TRUE.equals(p.getTieneTelegram()),
+                Boolean.TRUE.equals(p.getReferidoTieneTelegram()));
     }
 }

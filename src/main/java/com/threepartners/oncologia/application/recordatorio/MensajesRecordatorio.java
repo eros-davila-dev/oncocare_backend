@@ -33,6 +33,19 @@ final class MensajesRecordatorio {
         };
     }
 
+    /** Al referido: se nombra al paciente solo por su nombre de pila. */
+    static String textoReferido(TipoRecordatorio tipo, Paciente paciente, Cita cita) {
+        String saludo = paciente.nombrePilaReferido().isBlank() ? "Hola" : "Hola " + paciente.nombrePilaReferido();
+        String quien = paciente.nombrePila().isBlank() ? "la persona que acompanas" : paciente.nombrePila();
+        String hora = HORA.format(cita.getHora());
+        return switch (tipo) {
+            case T72H, T24H -> "%s 👋 Te recordamos que %s tiene una cita en la Fundación el %s a las %s. ¿Asistirá?"
+                    .formatted(saludo, quien, DIA.format(cita.getFecha()), hora);
+            case T2H -> "%s, la cita de %s en la Fundación es hoy a las %s. Si no podrá venir, avísanos aquí."
+                    .formatted(saludo, quien, hora);
+        };
+    }
+
     static String fechaTexto(Cita cita) {
         return DIA.format(cita.getFecha());
     }

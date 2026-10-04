@@ -24,7 +24,8 @@
           "id": "",
           "name": "Telegram Oncologia Bot"
         }
-      }
+      },
+      "webhookId": "c7d1f3a2-5b8e-4c6a-9f10-2e4b7a9d3c51"
     },
     {
       "id": "eda81b53-c0ee-5435-829d-9115ed14e761",
@@ -36,7 +37,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "// Normaliza el update de Telegram y decide la ruta (indice de salida del Switch).\n// 0 vincular | 1 bienvenida | 2 /stop | 3 /persona | 4 boton de recordatorio | 5 valoracion | 6 texto libre\nconst salida = [];\nfor (const item of $input.all()) {\n  const u = item.json;\n  const callback = u.callback_query;\n  const mensaje = u.message;\n  if (callback) {\n    const [tipo, id, valor] = String(callback.data || '').split(':');\n    const base = {\n      chatId: callback.message?.chat?.id,\n      callbackQueryId: callback.id,\n      messageId: callback.message?.message_id,\n    };\n    if (tipo === 'r') salida.push({ json: { ...base, ruta: 4, recordatorioId: Number(id), accion: valor } });\n    else if (tipo === 'v') salida.push({ json: { ...base, ruta: 5, consultaId: Number(id), valor: Number(valor) } });\n    continue;\n  }\n  if (!mensaje || typeof mensaje.text !== 'string') continue; // fotos, stickers, etc.: se ignoran\n  const texto = mensaje.text.trim();\n  const chatId = mensaje.chat.id;\n  if (texto.startsWith('/start ')) salida.push({ json: { ruta: 0, chatId, token: texto.substring(7).trim() } });\n  else if (texto === '/start' || texto === '/ayuda') salida.push({ json: { ruta: 1, chatId } });\n  else if (texto === '/stop') salida.push({ json: { ruta: 2, chatId } });\n  else if (texto === '/persona') salida.push({ json: { ruta: 3, chatId } });\n  else salida.push({ json: { ruta: 6, chatId, texto } });\n}\nreturn salida;"
+        "jsCode": "// Normaliza el update de Telegram y decide la ruta (indice de salida del Switch).\n// 0 vincular | 1 bienvenida | 2 /stop | 3 /persona | 4 boton de recordatorio | 5 valoracion | 6 texto libre\n// 7 contacto compartido (boton \"Compartir mi numero\"): vinculacion sin enlace personal\nconst salida = [];\nfor (const item of $input.all()) {\n  const u = item.json;\n  const callback = u.callback_query;\n  const mensaje = u.message;\n  if (callback) {\n    const [tipo, id, valor] = String(callback.data || '').split(':');\n    const base = {\n      chatId: callback.message?.chat?.id,\n      callbackQueryId: callback.id,\n      messageId: callback.message?.message_id,\n    };\n    if (tipo === 'r') salida.push({ json: { ...base, ruta: 4, recordatorioId: Number(id), accion: valor } });\n    else if (tipo === 'v') salida.push({ json: { ...base, ruta: 5, consultaId: Number(id), valor: Number(valor) } });\n    continue;\n  }\n  if (mensaje && mensaje.contact) {\n    // contact.user_id viaja para que el backend compruebe que el numero es del propio usuario.\n    salida.push({ json: {\n      ruta: 7,\n      chatId: mensaje.chat.id,\n      fromId: mensaje.from ? mensaje.from.id : null,\n      contactoUsuarioId: mensaje.contact.user_id ?? null,\n      telefono: String(mensaje.contact.phone_number || ''),\n    } });\n    continue;\n  }\n  if (!mensaje || typeof mensaje.text !== 'string') continue; // fotos, stickers, etc.: se ignoran\n  const texto = mensaje.text.trim();\n  const chatId = mensaje.chat.id;\n  if (texto.startsWith('/start ')) salida.push({ json: { ruta: 0, chatId, token: texto.substring(7).trim() } });\n  else if (texto === '/start' || texto === '/ayuda') salida.push({ json: { ruta: 1, chatId } });\n  else if (texto === '/stop') salida.push({ json: { ruta: 2, chatId } });\n  else if (texto === '/persona') salida.push({ json: { ruta: 3, chatId } });\n  else salida.push({ json: { ruta: 6, chatId, texto } });\n}\nreturn salida;"
       }
     },
     {
@@ -50,7 +51,7 @@
       ],
       "parameters": {
         "mode": "expression",
-        "numberOutputs": 7,
+        "numberOutputs": 8,
         "output": "={{ $json.ruta }}"
       }
     },
@@ -117,9 +118,30 @@
       ],
       "parameters": {
         "chatId": "={{ $json.chatId }}",
-        "text": "Hola 👋 Soy el asistente virtual de la Fundación. Para recibir recordatorios de tus citas, vincula tu cuenta desde el portal (Mi perfil → Vincular Telegram) o pide el código QR en recepción. También puedes escribirme tus preguntas. Comandos: /persona para hablar con el equipo, /stop para dejar de recibir mensajes.",
+        "text": "Hola 👋 Soy el asistente virtual de la fundación.\n\nPara recibir los recordatorios de tus citas (o los de la persona que acompañas), toca el botón «📱 Compartir mi número» que aparece abajo.\n\n🔒 Solo te enviaremos la fecha y hora de las citas. Nunca te pediremos contraseñas ni pagos.\n\nTambién puedes escribirme tus preguntas. /persona para hablar con el equipo · /stop para dejar de recibir mensajes.",
         "additionalFields": {
           "appendAttribution": false
+        },
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "📱 Compartir mi número",
+                    "additionalFields": {
+                      "request_contact": true
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": true
         }
       },
       "credentials": {
@@ -510,6 +532,62 @@
           "name": "Telegram Oncologia Bot"
         }
       }
+    },
+    {
+      "id": "d52a6d81-138a-43d2-9c9b-028adc681980",
+      "name": "Vincular por telefono",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        1080
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/integraciones/telegram/vincular-telefono",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId, fromId: $json.fromId, contactoUsuarioId: $json.contactoUsuarioId, telefono: $json.telefono }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "1d68934d-37a6-462b-a4f8-162979b908a5",
+      "name": "Responder vinculacion por telefono",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        1080
+      ],
+      "parameters": {
+        "chatId": "={{ $('Clasificar update').item.json.chatId }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "replyKeyboardRemove",
+        "replyKeyboardRemove": {
+          "remove_keyboard": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Oncologia Bot"
+        }
+      }
     }
   ],
   "connections": {
@@ -582,6 +660,13 @@
         [
           {
             "node": "Preguntar al asistente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vincular por telefono",
             "type": "main",
             "index": 0
           }
@@ -688,6 +773,17 @@
         [
           {
             "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vincular por telefono": {
+      "main": [
+        [
+          {
+            "node": "Responder vinculacion por telefono",
             "type": "main",
             "index": 0
           }

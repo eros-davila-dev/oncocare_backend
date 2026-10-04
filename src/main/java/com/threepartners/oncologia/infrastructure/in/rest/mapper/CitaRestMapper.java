@@ -4,6 +4,7 @@ import com.threepartners.oncologia.domain.cita.Cita;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CitaRequestDto;
 import com.threepartners.oncologia.infrastructure.in.rest.dto.cita.CitaResponseDto;
 import org.mapstruct.Mapper;
+import org.mapstruct.Context;
 import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
@@ -13,5 +14,11 @@ public interface CitaRestMapper {
     @Mapping(target = "estado", ignore = true)
     Cita aDominio(CitaRequestDto dto);
 
+    @Mapping(target = "pacienteNombre", ignore = true)
+    @Mapping(target = "medicoNombre", ignore = true)
     CitaResponseDto aResponse(Cita cita);
+
+    @Mapping(target = "pacienteNombre", expression = "java(nombres.paciente(cita.getPacienteId()))")
+    @Mapping(target = "medicoNombre", expression = "java(nombres.usuario(cita.getMedicoId()))")
+    CitaResponseDto aResponseConNombres(Cita cita, @Context NombresVista nombres);
 }

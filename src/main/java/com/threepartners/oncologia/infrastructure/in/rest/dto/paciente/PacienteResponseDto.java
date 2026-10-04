@@ -19,6 +19,7 @@ public record PacienteResponseDto(
         String estadioClinico,
         LocalDate fechaDiagnostico,
         Long medicoTratanteId,
+        String medicoTratanteNombre,
         ConvenioSeguro convenioSeguro,
         String contactoEmergenciaNombre,
         String contactoEmergenciaTelefono,
