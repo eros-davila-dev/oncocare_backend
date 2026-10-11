@@ -32,7 +32,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class OutboxIntegracionTest extends PostgresIntegracionTest {
 
-    private static final Instant INICIO = Instant.parse("2026-10-05T15:00:00Z");
+    // Relativo a la fecha real: los avisos se guardan con el reloj real del sistema y el
+    // relevo debe "verlos" ya vencidos (una fecha fija dejaba de funcionar al pasar ese dia).
+    private static final Instant INICIO = Instant.now().plus(Duration.ofDays(1)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
 
     @Autowired private JdbcTemplate jdbc;
     @Autowired private TransactionTemplate tx;

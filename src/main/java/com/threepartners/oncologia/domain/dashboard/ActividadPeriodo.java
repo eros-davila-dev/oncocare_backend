@@ -173,7 +173,7 @@ public final class ActividadPeriodo {
         var fechas = new TreeSet<LocalDate>();
         filas.registros().forEach(r -> fechas.add(r.fecha()));
         filas.citas().stream().filter(c -> c.comoFila().elegible()).forEach(c -> fechas.add(c.fecha()));
-        filas.recordatorios().stream().filter(r -> r.enviadoEn() != null).forEach(r -> fechas.add(r.enviadoEn().toLocalDate()));
+        filas.recordatorios().stream().filter(Recordatorio::enviado).forEach(r -> fechas.add(diaDeEnvio(r)));
         filas.consultas().forEach(k -> fechas.add(k.fecha()));
 
         List<Dia> dias = new ArrayList<>();
@@ -187,10 +187,15 @@ public final class ActividadPeriodo {
             dias.add(new Dia(fecha, registros.size(),
                     registros.isEmpty() ? null : redondear(registros.stream().mapToDouble(Registro::minutos).average().orElse(0)),
                     elegibles, inasistencias, pct(inasistencias, elegibles),
-                    contar(filas.recordatorios(), r -> r.enviadoEn() != null && fecha.equals(r.enviadoEn().toLocalDate())),
+                    contar(filas.recordatorios(), r -> r.enviado() && fecha.equals(diaDeEnvio(r))),
                     cerradas.size(), resueltas, pct(resueltas, cerradas.size())));
         }
         return dias;
+    }
+
+    /** Dia del envio; si la fuente no informa la hora (datos importados), el dia de la cita. */
+    private static LocalDate diaDeEnvio(Recordatorio r) {
+        return r.enviadoEn() != null ? r.enviadoEn().toLocalDate() : r.fechaCita();
     }
 
     private static <T> List<T> delDia(List<T> filas, Function<T, LocalDate> fecha, LocalDate dia) {
