@@ -21,6 +21,9 @@ WHERE cita_id IN (SELECT id FROM cita WHERE observaciones = 'DATOS DE DEMOSTRACI
 
 DELETE FROM cita WHERE observaciones = 'DATOS DE DEMOSTRACION';
 
+-- Tratamientos de cargar-modulos-demo.sql
+DELETE FROM ciclo_tratamiento WHERE observaciones = 'DATOS DE DEMOSTRACION';
+
 UPDATE paciente SET activo = false
 WHERE documento_identidad LIKE 'DEMO-%' AND activo;
 

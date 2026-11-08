@@ -42,21 +42,25 @@ public class EstudioRecoleccionController {
 
     @Operation(summary = "TPR, ausentismo y NCA de cada sesion (lunes, miercoles y viernes) de una fase")
     @GetMapping
-    public RecoleccionSesiones.Resumen resumen(@RequestParam Fase fase) {
-        return useCase.resumen(fase);
+    public RecoleccionSesiones.Resumen resumen(@RequestParam Fase fase,
+                                              @RequestParam(defaultValue = "LOCAL") RecoleccionPorSesionUseCase.Fuente fuente) {
+        return useCase.resumen(fase, fuente);
     }
 
     @Operation(summary = "Fichas evento por evento de una sesion, o de todas las sesiones si no se indica fecha")
     @GetMapping("/detalle")
     public RecoleccionSesiones.Detalle detalle(@RequestParam Fase fase,
-                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        return useCase.detalle(fase, fecha);
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+                                               @RequestParam(defaultValue = "LOCAL") RecoleccionPorSesionUseCase.Fuente fuente) {
+        return useCase.detalle(fase, fecha, fuente);
     }
 
     @Operation(summary = "Excel con las hojas del Instrumento: TPR, Ausentismo, Consultas, Sesiones y SPSS_Independientes")
     @GetMapping("/exportar.xlsx")
-    public ResponseEntity<byte[]> exportar(@RequestParam Fase fase, HttpServletRequest request) {
-        var datos = useCase.exportar(fase, AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request));
+    public ResponseEntity<byte[]> exportar(@RequestParam Fase fase,
+                                           @RequestParam(defaultValue = "LOCAL") RecoleccionPorSesionUseCase.Fuente fuente,
+                                           HttpServletRequest request) {
+        var datos = useCase.exportar(fase, fuente, AutenticacionActual.usuarioId(), AutenticacionActual.ipOrigen(request));
         String nombre = "recoleccion-" + fase.name().toLowerCase(Locale.ROOT) + "-"
                 + datos.generadoEn().atZone(ZonaHoraria.LIMA).format(SELLO) + ".xlsx";
         return ResponseEntity.ok()
