@@ -53,24 +53,33 @@ public class DashboardController {
     @GetMapping("/actividad")
     public ActividadPeriodo.Resumen actividad(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        return consultarActividadUseCase.resumen(desde, hasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(defaultValue = "LOCAL") ConsultarActividadUseCase.Fuente fuente) {
+        return consultarActividadUseCase.resumen(desde, hasta, fuente);
+    }
+
+    /** Cuantos pacientes de demostracion hay activos (0 = ninguno: el panel no muestra el aviso). */
+    @GetMapping("/datos-demo")
+    public java.util.Map<String, Integer> datosDemo() {
+        return java.util.Map.of("pacientes", consultarActividadUseCase.pacientesDemo());
     }
 
     /** Fila por fila (con nombres de pacientes). */
     @GetMapping("/actividad/detalle")
     public ActividadPeriodo.Filas actividadDetalle(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        return consultarActividadUseCase.detalle(desde, hasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(defaultValue = "LOCAL") ConsultarActividadUseCase.Fuente fuente) {
+        return consultarActividadUseCase.detalle(desde, hasta, fuente);
     }
 
     @GetMapping("/actividad/exportar.xlsx")
     public ResponseEntity<byte[]> exportarActividad(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(defaultValue = "LOCAL") ConsultarActividadUseCase.Fuente fuente,
             HttpServletRequest request) {
-        var datos = consultarActividadUseCase.exportar(desde, hasta, AutenticacionActual.usuarioId(),
+        var datos = consultarActividadUseCase.exportar(desde, hasta, fuente, AutenticacionActual.usuarioId(),
                 AutenticacionActual.ipOrigen(request));
         String nombre = "actividad-" + datos.resumen().desde() + "-a-" + datos.resumen().hasta() + "-"
                 + datos.generadoEn().atZone(ZonaHoraria.LIMA).format(SELLO) + ".xlsx";

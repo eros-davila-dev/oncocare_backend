@@ -41,6 +41,15 @@ public class LectorHojaCalculo {
     private static final int ANIO_BASE_EXCEL_SOLO_HORA = 1900;
 
     public List<Map<String, String>> leer(MultipartFile archivo) {
+        return leer(archivo, null);
+    }
+
+    /**
+     * @param hojaPreferida nombre de la hoja a leer en un .xlsx (p. ej. la hoja
+     *                      SPSS_Independientes del instrumento); si no existe,
+     *                      se lee la primera.
+     */
+    public List<Map<String, String>> leer(MultipartFile archivo, String hojaPreferida) {
         if (archivo == null || archivo.isEmpty()) {
             throw new ValidacionDeNegocioException("Adjunte un archivo .xlsx o .csv");
         }
@@ -53,12 +62,24 @@ public class LectorHojaCalculo {
                 return leerCsv(entrada);
             }
             if (nombre.endsWith(".xlsx") || nombre.endsWith(".xls")) {
-                return leerExcel(entrada);
+                return leerExcel(entrada, hojaPreferida);
             }
         } catch (IOException e) {
             throw new ValidacionDeNegocioException("No se pudo leer el archivo: " + e.getMessage());
         }
         throw new ValidacionDeNegocioException("Formato no soportado: use .xlsx o .csv");
+    }
+
+    /** Filas de una hoja con nombre exacto de un .xlsx; vacio si la hoja no existe. */
+    public java.util.Optional<List<Map<String, String>>> leerHojaSiExiste(MultipartFile archivo, String hoja) {
+        try (InputStream entrada = archivo.getInputStream(); Workbook libro = WorkbookFactory.create(entrada)) {
+            if (libro.getSheet(hoja) == null) {
+                return java.util.Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new ValidacionDeNegocioException("No se pudo leer el archivo: " + e.getMessage());
+        }
+        return java.util.Optional.of(leer(archivo, hoja));
     }
 
     public static String normalizarEncabezado(String encabezado) {
@@ -71,9 +92,10 @@ public class LectorHojaCalculo {
                 .replaceAll("[\\s\\-/.]+", "_");
     }
 
-    private List<Map<String, String>> leerExcel(InputStream entrada) throws IOException {
+    private List<Map<String, String>> leerExcel(InputStream entrada, String hojaPreferida) throws IOException {
         try (Workbook libro = WorkbookFactory.create(entrada)) {
-            Sheet hoja = libro.getSheetAt(0);
+            Sheet preferida = hojaPreferida != null ? libro.getSheet(hojaPreferida) : null;
+            Sheet hoja = preferida != null ? preferida : libro.getSheetAt(0);
             DataFormatter formateador = new DataFormatter(Locale.ROOT);
             Row filaEncabezados = hoja.getRow(hoja.getFirstRowNum());
             if (filaEncabezados == null) {
@@ -111,6 +133,14 @@ public class LectorHojaCalculo {
             }
             // Documentos de identidad escritos como numero: sin notacion cientifica ni ".0"
             return BigDecimal.valueOf(celda.getNumericCellValue()).stripTrailingZeros().toPlainString();
+        }
+        if (celda.getCellType() == CellType.FORMULA) {
+            // Sin evaluador, DataFormatter devuelve la formula: se usa el ultimo resultado guardado por Excel.
+            return switch (tipo) {
+                case STRING -> celda.getStringCellValue().strip();
+                case BOOLEAN -> String.valueOf(celda.getBooleanCellValue());
+                default -> "";
+            };
         }
         return formateador.formatCellValue(celda).strip();
     }
